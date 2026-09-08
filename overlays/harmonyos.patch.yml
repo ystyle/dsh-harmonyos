@@ -7,6 +7,8 @@
   disabled: true        # koffi: 原生 FFI 无法加载; 系统 App 沙箱已兜底
 - id: bash-sandbox
   disabled: true        # 无 bash 二进制
+- id: open-in-app
+  disabled: true        # 0.1.3 新增, 等 subprocess 服务; 鸿蒙无 subprocess, 「用应用打开」亦无意义
 # auto 目录选择器解析 bind host/SSH(依赖被禁用的原生能力) → 换纯 JS browse 变体
 - id: directory-picker
   name: '@deepseek-ai/dsh-host-directory-picker-browse'

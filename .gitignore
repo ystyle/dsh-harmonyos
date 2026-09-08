@@ -1,4 +1,9 @@
+# 依赖(发布/开源时由 npm install 重建); package-lock.json 入库, 固定补丁锚点验证过的已知良好树
 node_modules/
-*.tgz
-*.log
+
+# 运行时标记(dsh-ohos 首启自愈后写入)
 .dsh-harmonyos-ready
+
+# 系统杂物
+.DS_Store
+Thumbs.db

@@ -1,15 +1,15 @@
-#!/bin/env node
+#!/usr/bin/env node
 // dsh-ohos: DeepSeek Harness for HarmonyOS 启动器
 //   - 定位本包 node_modules 里的官方 dsh
-//   - 自动挑可用 node(带 --jitless 能力探测: v23+/受限沙箱需要)
+//   - 自动挑可用 node: 优先「带原生 zstd 的」(node>=22.16, 免 wasm 兼容层)
 //   - 固定必要参数: --expose-internals --experimental-sqlite --experimental-loader compat
 //   - 挂载 dsh-harmonyos overlay(原生行替换/禁用)
 // 用法:
-//   dsh-ohos                  # 启动 web(127.0.0.1:3080)
-//   dsh-ohos -- <官方dsh参数>   # 透传(如 --profile headless "任务")
+//   dsh-ohos                  # 启动 web(127.0.0.1:3080, 作者默认)
+//   dsh-ohos -- <官方dsh参数>   # 透传(如 --profile headless "任务"、--port 3081)
 //   NODE_OHOS=/path/node dsh-ohos   # 指定 node
-import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,31 +17,60 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const NM = join(ROOT, 'node_modules');
 const MARKER = join(NM, '.dsh-harmonyos-ready');
 const MARK = 'dsh-harmonyos-ready';
-const { execFileSync } = await import('node:child_process');
-if (!existsSync(join(NM, MARKER))) {
+
+// 环境校验前置: 先确认 NODE_OHOS 可用, 再谈自愈/启动。
+function pickNode() {
+  const nodeBin = process.env.NODE_OHOS;
+  if (!nodeBin) {
+    console.error('dsh-ohos: 未配置 NODE_OHOS 环境变量。');
+    console.error('  dsh 需要 node >= 22.16(带原生 zstd), 推荐 node26。请在 ~/.zshrc 配置:');
+    console.error("    export NODE_OHOS=\"$HOME/.harmonybrew/opt/node/bin/node\"");
+    console.error('  然后重开 shell 或 source ~/.zshrc 再运行 dsh-ohos。');
+    process.exit(1);
+  }
+  if (!existsSync(nodeBin)) {
+    console.error(`dsh-ohos: NODE_OHOS 指向的 node 不存在: ${nodeBin}`);
+    console.error('  请检查路径, 或改配: export NODE_OHOS="$HOME/.harmonybrew/opt/node/bin/node"');
+    process.exit(1);
+  }
+  return nodeBin;
+}
+const nodeBin = pickNode();
+
+// marker 记录「补丁生效时的 dsh 版本」。版本不一致(升级后补丁被 npm install 冲掉,
+// 或 postinstall 被 npm allowScripts 策略跳过)→ 自动重打; 只看存在性的旧方案会在
+// 升级后带着未打补丁的包静默启动, 是正确性缺陷。
+function installedDshVersion() {
+  try { return JSON.parse(readFileSync(join(NM, '@deepseek-ai', 'dsh', 'package.json'), 'utf8')).version || ''; }
+  catch { return ''; }
+}
+function markerVersion() {
+  try { return (readFileSync(MARKER, 'utf8').split(/\r?\n/)[0].trim().split(/\s+/)[1]) || ''; }
+  catch { return ''; }
+}
+const dshVersion = installedDshVersion();
+if (!existsSync(join(NM, '@deepseek-ai', 'dsh', 'lib', 'bin.js'))) {
+  console.error('dsh-ohos: 未找到 ' + join(NM, '@deepseek-ai', 'dsh', 'lib', 'bin.js') + ' — 请先在本仓库 npm install(拉取 @deepseek-ai/dsh)');
+  process.exit(1);
+}
+if (!dshVersion || markerVersion() !== dshVersion) {
   try {
-    // 首启自愈: --ignore-scripts 安装跳过 postinstall, 这里补打补丁 + 剪枝
-    execFileSync(process.execPath, [join(ROOT, 'lib', 'patch.mjs'), 'patch'], { stdio: 'inherit' });
-    execFileSync(process.execPath, [join(ROOT, 'lib', 'prune.mjs')], { stdio: 'inherit' });
-    writeFileSync(MARKER, MARK);
+    console.error(`dsh-ohos: 补丁状态与 dsh@${dshVersion || '?'} 不一致(marker=${markerVersion() || '无'}), 重打 patch/prune…`);
+    execFileSync(nodeBin, [join(ROOT, 'lib', 'patch.mjs'), 'patch'], { stdio: 'inherit' });
+    execFileSync(nodeBin, [join(ROOT, 'lib', 'prune.mjs')], { stdio: 'inherit' });
+    writeFileSync(MARKER, MARK + ' ' + dshVersion + '\n');
   } catch (e) {
     console.error('dsh-ohos: 自愈(patch/prune)失败:', e.message);
+    process.exit(1);
   }
 }
 const DSLIB = join(NM, '@deepseek-ai', 'dsh', 'lib', 'bin.js');
-const LOADER = join(ROOT, 'compat', 'compat-loader.mjs');
+const LOADER = join(ROOT, 'compat', 'register.mjs');   // module.register() 引导(--import), 替代弃用的 --experimental-loader
 const OVERLAY = join(ROOT, 'overlays', 'harmonyos.patch.yml');
-const HERED = dirname(fileURLToPath(import.meta.url));
 
 if (!existsSync(DSLIB)) {
-  console.error('dsh-ohos: 未找到 ' + DSLIB + ' — 请先 npm i -g dsh-harmonyos(会拉取 @deepseek-ai/dsh)');
+  console.error('dsh-ohos: 未找到 ' + DSLIB + ' — 请先在本仓库 npm install(拉取 @deepseek-ai/dsh)');
   process.exit(1);
-}
-
-// 挑 node: 优先 NODE_OHOS / process.execPath; v23+ 先探测裸跑, 崩则加 --jitless
-function pickNode() {
-  const candidates = [process.env.NODE_OHOS, process.execPath].filter(Boolean);
-  return candidates[0];
 }
 function probe(nodeBin) {
   return new Promise((resolve) => {
@@ -56,14 +85,13 @@ function probe(nodeBin) {
   });
 }
 
-const nodeBin = pickNode();
 const probeResult = await probe(nodeBin);
 const nodeArgs = [];
 if (probeResult.jitless) {
   console.error('dsh-ohos: 检测到当前 node 在受限沙箱无法分配可执行内存, 使用 --jitless(仅 CLI/服务可用)');
   nodeArgs.push('--jitless');
 }
-nodeArgs.push('--expose-internals', '--experimental-sqlite', '--experimental-loader', LOADER);
+nodeArgs.push('--expose-internals', '--experimental-sqlite', '--import', LOADER);
 
 const dash = process.argv.indexOf('--');
 const passthrough = dash === -1 ? [] : process.argv.slice(dash + 1);
