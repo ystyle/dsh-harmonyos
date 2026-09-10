@@ -4,6 +4,9 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.9.0** (2026-09-10) — 新增内置系统提示词预设（`harmonyos-chat`）
+  - 仓库携带 `presets/harmonyos-chat/`（基于官方 `standard` 的完整编码 Agent），persona 预置鸿蒙运行环境说明（鸿蒙内核 / `target=linux-aarch64-ohos` / 与 Linux ABI 兼容但非 Linux / `/tmp` 只读 / 临时文件写 `$TMPDIR`=~/.cache），新会话开箱即带系统提示词
+  - 启动器首启自动 seed 到 `~/.dsh/.agent-presets/harmonyos-chat/` 并设为默认预设（用户已设置过默认则不覆盖）；`DSH_OHOS_PRESET=off|<id>` 可关闭/改名
 - **v0.8.2** (2026-09-10) — 修复华为官方浏览器(ArkWeb)文件预览「文件资源服务不可用」
   - ArkWeb 把未知 scheme `dsh-resource://` 当不透明 URL 解析, `new URL()` 的 `hostname` 恒为空 → 客户端资源协议识别失败 → 文件预览 `meta.status="none"`(文件树/模型列表不走资源协议, 故正常, 极易误判)
   - 新增补丁 `patchClientResources`: `protocolOf` 解析不到 host 时按 `dsh-resource://<protocol>/` 手工拆解回退; 标准浏览器/系统为分层解析, 不受影响
@@ -61,6 +64,23 @@ npm i -g dsh-harmonyos@latest --ignore-scripts
 | `DSH_OHOS_FORCE_DANGER=1` | 强制非沙箱执行(OHOS 无 OS 沙箱后端) | 默认注入 |
 | `DSH_PERMISSION_MODE=danger-full-access` | 让 permission 服务推出的默认 preset 落到 `danger-full-access`(0.1.5-rc.1 必需, 否则 boot 期直接抛错) | 默认注入 |
 | `DSH_RG_PATH` | 指定 ripgrep 路径(glob/grep 用) | prebuilt/rg(AGC 签名) |
+| `DSH_OHOS_PRESET` | 内置预设开关/改名: `off` 关闭; 其它合法 id 则用该 id 落地 | `harmonyos-chat` |
+
+### 内置系统提示词（harmonyos-chat 预设）
+
+仓库 `presets/harmonyos-chat/` 携带一个**内置 agent 预设**（基于官方 `standard`
+完整编码 Agent），其 persona 已把鸿蒙运行环境说明写进系统提示词：
+鸿蒙内核、`target=linux-aarch64-ohos`、与 Linux ABI 兼容但**不是** Linux、
+`/tmp` 只读、临时文件写 `$TMPDIR`（默认 `~/.cache`）。
+
+- 启动器首次运行时把它 seed 到 `~/.dsh/.agent-presets/harmonyos-chat/`，
+  并在 `~/.dsh/settings.yaml` 尚无 `agent-presets:` 时把 **默认预设** 指到它
+  —— 之后新建的会话「一开始就内置」这套系统提示词。
+- 想改提示词：直接编辑 `~/.dsh/.agent-presets/harmonyos-chat/agent.cordis.yml`
+  的 `persona.config.prefix`（用户编辑不会被启动器覆盖）；改回仓库模板则删掉
+  落地目录即可重新 seed。
+- 不改默认：给 `settings.yaml` 显式写 `agent-presets: {default: standard}`。
+- 关闭/改名：`DSH_OHOS_PRESET=off` 或 `DSH_OHOS_PRESET=<其它id>`。
 
 受限沙箱(如 pi agent 环境)内 prebuilt 二进制可能被 exec 白名单拦截, 用本机受信 rg:
 ```sh
@@ -69,14 +89,15 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 真机(非受限沙箱)默认即可, 无需设置。
 
 > 首次启动自愈: patch(源码补丁) + prune + prebuilt 铺位(koffi/node-pty, AGC 签名) +
-> sharp wasm32 后端确认 + seed 权限默认(danger-full-access)。升级/重装后 marker 版本不一致会自动重跑。
+> sharp wasm32 后端确认 + seed 权限默认(danger-full-access) + seed 内置预设(harmonyos-chat)。
+> 升级/重装后 marker 版本不一致会自动重跑。
 
 ## 适配机制
 
 | 层 | 机制 | 说明 |
 |---|---|---|
 | 平台归一 | `compat/register.mjs` | `process.platform` 归一为 `linux`(module.register 引导)。鸿蒙 node 上报 `openharmony`, 会让按平台分发的包匹配失败 |
-| 启动器 | `bin/dsh-ohos.js` | 读 `NODE_OHOS`(强制); 首启自愈; 注入 `DSH_OHOS_FORCE_DANGER=1`(默认非沙箱); seed `permission.defaultPreset=danger-full-access`; 固定 `--expose-internals --experimental-sqlite --import compat/register.mjs`; 受限沙箱自动 `--jitless` |
+| 启动器 | `bin/dsh-ohos.js` | 读 `NODE_OHOS`(强制); 首启自愈; 注入 `DSH_OHOS_FORCE_DANGER=1`(默认非沙箱); seed `permission.defaultPreset=danger-full-access`; **seed 内置预设 `presets/harmonyos-chat`(系统提示词开箱自带, 见下)**; 固定 `--expose-internals --experimental-sqlite --import compat/register.mjs`; 受限沙箱自动 `--jitless` |
 | compat loader | `compat/compat-loader.mjs` | 模块重定向: `node:zlib`/`node:module`(原生优先, 旧 node 回退 shim)、`fs-ext`(flock stub)、`koffi`(默认走真构建; `DSH_OHOS_KOFFI=shim` 退回 stub)、sharp 不拦截(wasm32 后端) |
 | 源码补丁 | `lib/patch.mjs` | 幂等打官方包: 硬链接 EPERM→rename、chmod 600 属主检查跳过、回环免 token、settings 旧 API 垫片、**sandbox-policy 默认 mode=danger**、**fs-search 支持 DSH_RG_PATH**。**npm 11 嵌套布局多实例全部补丁并逐一校验** |
 | 升级预检 | `lib/anchors.mjs` | **`npm run preflight [树路径]`**: 在未打补丁的树上核对全部补丁锚点是否仍命中。官方升级后先在隔离 staging 树跑它, 就能在动生产树之前知道要不要改锚点 |

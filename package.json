@@ -1,6 +1,6 @@
 {
   "name": "dsh-harmonyos",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "DeepSeek Harness for HarmonyOS — 一条命令装好:JS-only 替代/裁剪 profile、鸿蒙文件系统补丁、compat loader(zstd/fs-ext/sharp shim)、自启脚本(优先原生 zstd 的 node)。装完跑 dsh-ohos 即可。",
   "keywords": [
     "dsh",

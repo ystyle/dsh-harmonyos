@@ -9,7 +9,7 @@
 //   dsh-ohos -- <官方dsh参数>   # 透传(如 --profile headless "任务"、--port 3081)
 //   NODE_OHOS=/path/node dsh-ohos   # 指定 node
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, copyFileSync, mkdirSync, rmSync, appendFileSync, chmodSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, copyFileSync, mkdirSync, rmSync, appendFileSync, chmodSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -290,6 +290,52 @@ function seedPermissionDefault() {
   } catch { /* ignore */ }
 }
 seedPermissionDefault();
+
+// 内置预设 seed: 把仓库 presets/<id>/ 预置到 $DSH_HOME/.agent-presets/<id>/
+// 「系统提示词在一开始就内置」的实现 —— 会话的 system prompt 由它挂载的 agent
+// preset 组合出来, 让新会话默认挂上内置预设即等于提示词开箱自带。
+//   - 只在「缺失」或「模板比已落地文件新」时同步, 绝不覆盖用户后续编辑
+//     (用户自己改过 → 落地文件 mtime 更新 → 跳过)
+//   - settings.yaml 尚未出现 agent-presets 命名空间时补 default 指到该预设;
+//     用户一旦自己设置过(默认预设或改回别的), 尊重其选择, 不再写入
+//   - DSH_OHOS_PRESET=off 关闭; =其它合法 id 时改用该 id 落地(便于自己改名)
+function seedBuiltinPreset() {
+  const presetId = 'harmonyos-chat';
+  const want = (process.env.DSH_OHOS_PRESET || '').trim();
+  if (want === 'off' || want === '0' || want === 'false') return;
+  // 幂等 id 兜底: 非法字符/撞 shipped 预设名 → 退回模板默认 id
+  const shipped = ['standard', 'ptc', 'minimal', 'cordis'];
+  const id = /^[a-z0-9][a-z0-9-]*$/.test(want) && !shipped.includes(want) ? want : presetId;
+  const home = process.env.DSH_HOME || join(process.env.HOME || '', '.dsh');
+  const src = join(ROOT, 'presets', presetId);
+  if (!existsSync(join(src, 'agent.cordis.yml'))) return; // 仓库缺模板(如旧安装) → 静默跳过
+  const dst = join(home, '.agent-presets', id);
+  try {
+    const newerThan = (a, b) => { try { return statSync(a).mtimeMs > statSync(b).mtimeMs; } catch { return true; } };
+    let changed = false;
+    for (const f of ['preset.yml', 'agent.cordis.yml']) {
+      const s = join(src, f);
+      const d = join(dst, f);
+      if (!existsSync(d)) { mkdirSync(dst, { recursive: true }); copyFileSync(s, d); changed = true; }
+      else if (newerThan(s, d)) { copyFileSync(s, d); changed = true; } // 模板更新 → 刷新
+    }
+    if (changed) console.error(`dsh-ohos: 已 seed 内置预设 ${id}(${dst})`);
+    const sp = join(home, 'settings.yaml');
+    if (existsSync(sp)) {
+      if (!/^agent-presets:/m.test(readFileSync(sp, 'utf8'))) {
+        appendFileSync(sp, `\nagent-presets:\n  default: ${id}\n`);
+        console.error(`dsh-ohos: 已 seed 默认预设 agent-presets.default=${id}`);
+      }
+    } else {
+      // 全新 home: settings.yaml 尚未生成(dsh 首次写设置时才创建), 直接建一个最小文件,
+      // 否则「默认预设」要等第二次启动才生效, 与「开箱即带系统提示词」的承诺不符。
+      writeFileSync(sp, `agent-presets:\n  default: ${id}\n`);
+      console.error(`dsh-ohos: 已创建 settings.yaml 并 seed 默认预设 agent-presets.default=${id}`);
+    }
+  } catch { /* 只读/无写权限时静默跳过, 不阻塞启动 */ }
+}
+seedBuiltinPreset();
+
 const childEnv = { ...process.env };
 if (childEnv.DSH_OHOS_FORCE_DANGER === undefined) childEnv.DSH_OHOS_FORCE_DANGER = '1';
 // 0.1.5-rc.1 起 permission 服务在构造时会用 ctx.approval.config.policy 反推默认 preset

@@ -1,0 +1,2 @@
+name: 鸿蒙对话模式（内置提示词）
+description: 基于标准模式的完整编码 Agent；系统提示词预置鸿蒙运行环境说明（鸿蒙内核 / target=linux-aarch64-ohos / 与 Linux ABI 兼容但非 Linux / /tmp 只读 / $TMPDIR=~/.cache），开箱即用。
