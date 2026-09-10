@@ -13,13 +13,24 @@
 import { pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHIMS = {
-  'node:zlib': join(HERE, 'zlib-shim.mjs'),
-  'node:module': join(HERE, 'module-shim.mjs'),
   'fs-ext': join(HERE, 'fs-ext-shim.mjs'),
 };
+// 原生能力优先: node:zlib 的 zstd(node>=22.16)与 node:module 的
+// stripTypeScriptTypes(node>=22.18)已有原生实现时**不**走 shim, 只有旧 node 才补齐。
+// 曾无条件 shim node:zlib: node26 + undici8(decompress.js 内 CJS require('node:zlib'))
+// 会被重定向到含 top-level await 的 zlib-shim.mjs → ERR_REQUIRE_ASYNC_MODULE 启动即崩
+// (0.1.5-rc.1 依赖树引入 undici 8 后实测)。原生可用即透传, 语义与 shim 的原生分支一致。
+const compatRequire = createRequire(import.meta.url);
+if (typeof compatRequire('node:zlib').createZstdCompress !== 'function') {
+  SHIMS['node:zlib'] = join(HERE, 'zlib-shim.mjs');
+}
+if (typeof compatRequire('node:module').stripTypeScriptTypes !== 'function') {
+  SHIMS['node:module'] = join(HERE, 'module-shim.mjs');
+}
 // koffi: 默认走树里真实构建(自愈 ensure-koffi 已编译+签名); DSH_OHOS_KOFFI=shim 退回 stub。
 if (process.env.DSH_OHOS_KOFFI === 'shim') SHIMS['koffi'] = join(HERE, 'koffi-shim.mjs');
 if (process.env.DSH_OHOS_SHARP === 'shim') SHIMS['sharp'] = join(HERE, 'sharp-shim.mjs');
