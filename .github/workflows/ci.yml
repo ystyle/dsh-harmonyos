@@ -1,0 +1,45 @@
+# dsh-harmonyos CI: PR / push 到 main 时的检查门禁(不发布)。
+# 目的: 人不在鸿蒙 PC 也能远程合并 PR —— 合并前先过「锚点预检 + 语法检查」。
+# 鸿蒙专属的 smoke(依赖鸿蒙 prebuilt/NODE_OHOS)在 Linux runner 上跑不了, 真机冒烟仍需本机做。
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      # 依赖只装不跑脚本: 与鸿蒙安装一致用 --ignore-scripts(原生包 install 在 CI 无意义)。
+      - name: 安装依赖
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # 补丁锚点预检: 在未打补丁树上核对全部锚点。官方 dsh 升级后锚点漂移会在这里被拦下,
+      # 而不是等发布后装在鸿蒙上才炸(见 README「升级官方 dsh 的安全流程」)。
+      - name: 补丁锚点预检
+        run: npm run preflight
+
+      # 启动器/补丁引擎/compat/脚本的语法检查(node --check, ESM 按 package.json type 解析)。
+      - name: 语法检查
+        run: |
+          for f in bin/dsh-ohos.js lib/index.js lib/patch.mjs lib/prune.mjs lib/anchors.mjs compat/*.mjs scripts/*.mjs; do
+            node --check "$f" || { echo "✗ 语法错误: $f"; exit 1; }
+          done
+          echo "syntax OK"
+
+      # 打包预览: 确认 tarball 内容/体积符合预期(发现 bin 之类异常在此暴露)。
+      - name: 打包预览
+        run: npm pack --dry-run

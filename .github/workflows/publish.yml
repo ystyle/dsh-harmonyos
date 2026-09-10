@@ -1,0 +1,63 @@
+# dsh-harmonyos 自动发布: push v* tag(且与 package.json version 一致)→ 检查门禁 → npm publish。
+# 目的: 合并 PR / 打 tag 全程不需要鸿蒙 PC; 人在外面也能发版。
+# 用法:
+#   1. 仓库 Settings → Secrets and variables → Actions → 新增 NPM_TOKEN(= 你的 npm access token)
+#   2. git tag vX.Y.Z(与 package.json version 一致)&& git push origin vX.Y.Z
+#   3. Actions → publish → 自动 preflight + 语法检查 + npm publish
+# 也可手动触发: Actions → publish → Run workflow。
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # tag 与 package.json 版本必须一致, 防错发(如 tag v0.8.3 但 package.json 还是 0.8.2)。
+      - name: 校验 tag 与版本一致
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if [ "refs/tags/v${V}" != "${GITHUB_REF}" ]; then
+            echo "✗ tag ${GITHUB_REF} 与 package.json 版本 v${V} 不一致, 中止发布"
+            exit 1
+          fi
+          echo "发布版本: v${V}"
+
+      - name: 安装依赖
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: 补丁锚点预检
+        run: npm run preflight
+
+      - name: 语法检查
+        run: |
+          for f in bin/dsh-ohos.js lib/index.js lib/patch.mjs lib/prune.mjs lib/anchors.mjs compat/*.mjs scripts/*.mjs; do
+            node --check "$f" || { echo "✗ 语法错误: $f"; exit 1; }
+          done
+          echo "syntax OK"
+
+      # registry-url 已在 setup-node 配好, NODE_AUTH_TOKEN 自动写入 .npmrc;
+      # 显式 --registry 防本仓库 .npmrc 的 npmmirror 干扰。
+      - name: 发布到 npm
+        run: npm publish --registry=https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
