@@ -241,6 +241,41 @@ const args = dash === -1
 console.error(`dsh-ohos: node=${nodeBin}${probeResult.jitless ? ' --jitless' : ''}`);
 console.error(`dsh-ohos: dsh=${DSLIB}\ndsh-ohos: overlay=${OVERLAY}`);
 
+// 陈旧写锁清理。官方 dsh-atomic-write 的跨进程写锁 = <target>.lock 文件(open(wx) 建,
+// finally 里 rm 删); 进程被 SIGKILL / 崩溃时 finally 不执行, 留下**无主锁文件**。
+// 官方 isLockContention 只认 EEXIST, 没有 owner 存活检测也没有超时回收, 于是之后每个
+// dsh 启动都会卡满 20s 再抛 "atomic-write: timed out waiting for the writer lock" ——
+// 0.1.3 / 0.1.5 同样中招(与版本无关, 实测)。鸿蒙上无法可靠回收锁, 启动前主动清一次:
+// 锁文件里的 PID 已不存在(或内容不成形)即判定无主。不会误删活锁(活着的持有者 PID 命中即跳过)。
+function clearStaleWriteLocks() {
+  const home = process.env.HOME || '';
+  const dshHome = process.env.DSH_HOME || join(home, '.dsh');
+  const scanned = [];
+  const consider = (p) => {
+    try {
+      if (!existsSync(p)) return;
+      const pid = Number.parseInt((readFileSync(p, 'utf8').split('\n')[0] || '').trim(), 10);
+      if (Number.isInteger(pid) && pid > 1) {
+        let alive = false;
+        try { process.kill(pid, 0); alive = true; } catch (e) { alive = e && e.code === 'EPERM'; }
+        if (alive) return; // 持有者还在 → 是活锁, 不动
+      }
+      rmSync(p, { force: true });
+      scanned.push(p);
+    } catch { /* ignore */ }
+  };
+  // 已知会被 atomic-write 加锁的目标(按需增补即可)
+  consider(join(dshHome, '.credentials.yaml.lock'));
+  consider(join(dshHome, 'settings.yaml.lock'));
+  consider(join(dshHome, 'profiles', 'node_modules.lock'));
+  try {
+    const sdir = join(dshHome, 'sessions');
+    for (const e of readdirSync(sdir)) consider(join(sdir, e, 'session.lock'));
+  } catch { /* ignore */ }
+  for (const p of scanned) console.error('dsh-ohos: 清理陈旧写锁 ' + p);
+}
+clearStaleWriteLocks();
+
 // 首启 seed: ~/.dsh/settings.yaml 无 permission 段时补 defaultPreset=danger-full-access
 // (鸿蒙无 OS 沙箱后端; danger = 非沙箱直跑, 等同本机其它 agent)
 function seedPermissionDefault() {
@@ -257,6 +292,12 @@ function seedPermissionDefault() {
 seedPermissionDefault();
 const childEnv = { ...process.env };
 if (childEnv.DSH_OHOS_FORCE_DANGER === undefined) childEnv.DSH_OHOS_FORCE_DANGER = '1';
+// 0.1.5-rc.1 起 permission 服务在构造时会用 ctx.approval.config.policy 反推默认 preset
+// (0.1.3 只在有 session 时才碰这条路径)。鸿蒙无 OS 沙箱后端, 不显式指定就会推出
+// "custom" 并直接 throw: "composed sandbox and approval defaults match no preset"。
+// 官方 approval 插件读 DSH_PERMISSION_MODE 决定 policy, 这里与 DSH_OHOS_FORCE_DANGER
+// 同源置为 danger-full-access, 让推导落到 danger-full-access preset。
+if (childEnv.DSH_PERMISSION_MODE === undefined) childEnv.DSH_PERMISSION_MODE = 'danger-full-access';
 if (childEnv.DSH_RG_PATH === undefined) {
   const prg = join(ROOT, 'prebuilt', 'rg');
   if (existsSync(prg)) {
@@ -267,5 +308,18 @@ if (childEnv.DSH_RG_PATH === undefined) {
   }
 }
 const child = spawn(nodeBin, [...nodeArgs, DSLIB, ...args], { stdio: 'inherit', env: childEnv });
+// 信号转发: 包装进程本身不持任何状态, 收到 SIGINT/SIGTERM(如 Ctrl-C、smoke/npm test 收尾)
+// 必须原样转给真正的 dsh 子进程。否则包装进程退出后, 子进程被 reparent 到 PID 1 继续占用
+// 端口存活(实测 npm test 收尾会留下孤儿 web 进程), 而它还可能持有 profiles/node_modules 写锁。
+let forwarded = false;
+const forward = (sig) => {
+  if (forwarded || child.exitCode !== null) return;
+  forwarded = true;
+  try { child.kill(sig); } catch { /* ignore */ }
+  // 收尾兜底: 5s 内没退出就强杀, 避免留下孤儿
+  const t = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* ignore */ } }, 5000);
+  if (typeof t.unref === 'function') t.unref();
+};
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => forward(sig));
 child.on('error', (e) => { console.error('dsh-ohos: 启动失败:', e.message); process.exit(1); });
 child.on('exit', (code, sig) => process.exit(code === null ? (sig ? 1 : 0) : code));

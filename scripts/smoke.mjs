@@ -37,7 +37,9 @@ child.stderr.on('data', grab);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let ok = false, detail = '';
 try {
-  for (let i = 0; i < 45 && !ok; i++) {
+  // 0.1.5-rc.1 冷启动(含 profile module-fallback 自愈)在鸿蒙存储上实测约 45-70s;
+  // 原先 45 轮 ×2s=90s 的窗口贴着下限, 会假失败。放宽到 120 轮(约 240s)。
+  for (let i = 0; i < 120 && !ok; i++) {
     await sleep(2000);
     if (child.exitCode !== null) { detail = `dsh 进程提前退出(exit=${child.exitCode})`; break; }
     if (!tokenUrl) continue;
@@ -51,11 +53,13 @@ try {
     if (res2.status === 200) { ok = true; detail = `token 303+cookie → / 200 (端口 ${port})`; }
     else detail = `带 cookie GET / 期待 200, 得到 ${res2.status}`;
   }
-  if (!ok && !detail) detail = '超时: 45 秒内未完成认证链路';
+  if (!ok && !detail) detail = '超时: 240 秒内未完成认证链路';
 } finally {
+  // 收尾必须确认包装进程真的退出: 包装器会把信号转发给 dsh 子进程, 但如果转发链路有意外,
+  // 子进程会被 reparent 到 PID 1 继续占端口并可能持有 profiles 写锁(实测发生过)。
   child.kill('SIGTERM');
-  await sleep(1500);
-  if (child.exitCode === null) child.kill('SIGKILL');
+  for (let i = 0; i < 20 && child.exitCode === null; i++) await sleep(500);
+  if (child.exitCode === null) { child.kill('SIGKILL'); await sleep(1000); }
 }
 
 console.log(ok ? `smoke: PASS — ${detail}` : `smoke: FAIL — ${detail}`);
