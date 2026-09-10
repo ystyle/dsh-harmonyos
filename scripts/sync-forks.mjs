@@ -45,8 +45,10 @@ const FORKS = [
   // client-resources / tool-fs-search / credentials-local / sandbox-policy
 ];
 
-const cmd = process.argv[2] || 'sync';
-const publish = process.argv.includes('--publish');
+// 命令: sync(默认) / --publish / --materialize / --check(容忍带或不带前导 -)
+const raw = (process.argv[2] || 'sync').replace(/^-+/, '');
+const cmd = raw === 'sync' || raw === 'check' || raw === 'publish' || raw === 'materialize' ? raw : 'sync';
+const publish = cmd === 'publish' || process.argv.includes('--publish');
 if (publish && !process.env.NODE_AUTH_TOKEN) {
   console.error('✗ --publish 需要 NODE_AUTH_TOKEN(发布 @dsh-harmonyos/* 用)');
   process.exit(1);
