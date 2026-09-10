@@ -1,0 +1,48 @@
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1,7 +1,7 @@
+ import z from "@deepseek-ai/schemastery";
+ import { SessionFormatUnsupportedMigrationError, sessionFormatCatalog } from "@deepseek-ai/dsh-session-format-catalog";
+ import { readdirSync } from "node:fs";
+-import { link, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate } from "node:fs/promises";
++import { link, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate , rename} from "node:fs/promises";
+ import { basename, dirname, isAbsolute, join, parse, resolve, toNamespacedPath } from "node:path";
+ import { performance } from "node:perf_hooks";
+ import { scheduler } from "node:timers/promises";
+@@ -2028,13 +2028,24 @@
+ 		/* v8 ignore next -- the filesystem error is already complete. */
+ 		throw error;
+ 	}
++	/* HarmonyOS patch: publishCurrentExclusive —— /storage 挂载对 link() 报 EPERM，改按 rename 发布； */
++	/* 目标已存在时返回 false(独占语义)，缺失才 rename。 */
+ 	try {
+ 		await internals.fs.link(staged, currentPath);
+ 	} catch (error) {
+-		/* v8 ignore else -- a non-collision filesystem error propagates unchanged. */
+ 		if (isEEXIST(error)) return false;
+ 		/* v8 ignore next -- the filesystem error is already complete. */
+-		throw error;
++		if (!(error instanceof Error && "code" in error && error.code === "EPERM")) throw error;
++		let existed = true;
++		try {
++			await internals.fs.lstat(currentPath);
++		} catch (probeError) {
++			/* v8 ignore next -- 仅目标缺失(ENOENT)才继续 rename，其余错误如实上抛。 */
++			if (!(probeError instanceof Error && "code" in probeError && probeError.code === "ENOENT")) throw probeError;
++			existed = false;
++		}
++		if (existed) return false;
++		await rename(staged, currentPath);
+ 	}
+ 	await syncDirectory(dirname(currentPath), internals);
+ 	return true;
+@@ -2970,7 +2981,8 @@
+ 		const tmp = await this.writeSyncedTempFile(finalPath, content);
+ 		let linked = false;
+ 		try {
+-			await link(tmp, finalPath);
++			/* HarmonyOS patch: 本机不支持硬链接(EPERM)，link→rename */
++			await rename(tmp, finalPath);
+ 			linked = true;
+ 		} finally {
+ 			/* v8 ignore next -- link failure is the TOCTOU/IO race guarded above; not reachable in test */

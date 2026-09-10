@@ -29,6 +29,7 @@
     "check": "node ./lib/patch.mjs check",
     "preflight": "node ./lib/anchors.mjs",
     "prune": "node ./lib/prune.mjs",
+    "sync-forks": "node ./scripts/sync-forks.mjs",
     "test": "node ./scripts/smoke.mjs"
   },
   "dependencies": {
