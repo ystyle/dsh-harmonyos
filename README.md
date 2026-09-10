@@ -15,6 +15,11 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 > (v2→v3 会话迁移), 而原 `patchSession` 用「文件含 MARK 就整体跳过」做幂等 —— 标记来自第 1 条补丁,
 > 于是第 2 条**永远漏补**, 表现为**新建会话正常、打开老会话即 EPERM**。已改逐点幂等 + rename 回退;
 > 同类补齐 `dsh-attachment-local` 的 `publishImmutableAlias`(改 `copyFile` + `COPYFILE_EXCL`, 因源是内容寻址原件不可移走)。
+> **v0.8.2 修复华为官方浏览器(ArkWeb)文件预览「文件资源服务不可用」**: ArkWeb 把未知 scheme
+> (`dsh-resource://`) 当**不透明 URL** 解析, `new URL(...)` 的 `hostname` 恒为空 → 客户端资源协议
+> 识别失败 → 侧边栏文件预览 `meta.status="none"`(文件树/模型列表不走资源协议, 故正常, 极易误判)。
+> 新增补丁 `patchClientResources`: `dsh-client-resources` 的 `protocolOf` 在解析不到 host 时
+> 按 `dsh-resource://<protocol>/` 手工拆解回退; 其它浏览器/系统为分层解析, 不受影响(本机海泰浏览器验证正常)。
 > License: MIT。
 
 ## 环境要求
