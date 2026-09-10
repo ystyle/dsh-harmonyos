@@ -41,8 +41,67 @@ const FORKS = [
       'HarmonyOS patch: 本机不支持硬链接(EPERM)，link→rename',
     ],
   },
-  // M1 追加(见方案附录 A): attachment-local / fs-local / node-addon-system /
-  // client-resources / tool-fs-search / credentials-local / sandbox-policy
+  {
+    fork: '@dsh-harmonyos/dsh-attachment-local',
+    upstream: '@deepseek-ai/dsh-attachment-local',
+    version: '0.1.5-rc.1',
+    harmony: 1,
+    patch: 'dsh-attachment-local.patch',
+    markers: [
+      'HarmonyOS patch: publishImmutableAlias',
+      'HarmonyOS patch: 部分挂载点/目录无法以只读句柄打开',
+    ],
+  },
+  {
+    fork: '@dsh-harmonyos/dsh-fs-local',
+    upstream: '@deepseek-ai/dsh-fs-local',
+    version: '0.1.5-rc.1',
+    harmony: 1,
+    patch: 'dsh-fs-local.patch',
+    markers: ['HarmonyOS /storage mounts reject hard links'],
+  },
+  {
+    fork: '@dsh-harmonyos/node-addon-system',
+    upstream: '@deepseek-ai/node-addon-system',
+    version: '0.1.2',
+    harmony: 1,
+    patch: 'node-addon-system.patch',
+    markers: ['HarmonyOS no-op memory flock'],
+  },
+  {
+    fork: '@dsh-harmonyos/dsh-client-resources',
+    upstream: '@deepseek-ai/dsh-client-resources',
+    version: '0.1.5-rc.1',
+    harmony: 1,
+    patch: 'dsh-client-resources.patch',
+    markers: ['HarmonyOS patch: protocolOf 手动回退'],
+  },
+  {
+    fork: '@dsh-harmonyos/dsh-tool-fs-search',
+    upstream: '@deepseek-ai/dsh-tool-fs-search',
+    version: '0.1.5-rc.1',
+    harmony: 1,
+    patch: 'dsh-tool-fs-search.patch',
+    markers: ['DSH_RG_PATH'],
+  },
+  {
+    fork: '@dsh-harmonyos/dsh-credentials-local',
+    upstream: '@deepseek-ai/dsh-credentials-local',
+    version: '0.1.5-rc.1',
+    harmony: 1,
+    patch: 'dsh-credentials-local.patch',
+    markers: ['HarmonyOS patch: 文件系统强制组位'],
+  },
+  {
+    fork: '@dsh-harmonyos/dsh-sandbox-policy',
+    upstream: '@deepseek-ai/dsh-sandbox-policy',
+    version: '0.1.5-rc.1',
+    harmony: 1,
+    patch: 'dsh-sandbox-policy.patch',
+    markers: ['DSH_OHOS_FORCE_DANGER'],
+  },
+  // 待定/后置: loopbackAuth(先做配置化调研)、vision(可选插件, 未安装)。
+  // C 类(升版删除, 不 fork): settingsCompat / permission / cordisLoader。
 ];
 
 // 命令: sync(默认) / --publish / --materialize / --check(容忍带或不带前导 -)
@@ -70,6 +129,9 @@ function packAndExtract(f, dir) {
   if (!existsSync(tgz)) throw new Error(`${f.fork}: npm pack 失败, 输出=${packOut}`);
   sh(`tar -xzf "${tgz}" -C "${dir}" --strip-components=1`, dir);
   rmSync(tgz, { force: true });
+  // 关键: .forks-out 位于 dsh-harmonyos 仓库内, 不 init 时 git apply 会向上解析到外层仓库根
+  // (a/lib/index.js 变成仓库自己的 lib/), 应用结果错乱; init 后该目录是独立工作树, 路径相对本目录。
+  sh('git init -q', dir);
   return dir;
 }
 

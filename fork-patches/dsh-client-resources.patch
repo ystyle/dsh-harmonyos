@@ -1,0 +1,28 @@
+diff --git a/lib/client.js b/lib/client.js
+index 2f9779d..c110d83 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -13,7 +13,13 @@ window.__ModuleLoader__.load({
+ 		* @param address - the full address.
+ 		* @returns the protocol key, or `undefined` when the address is not a resource address.
+ 		*/
+-		function protocolOf(address) {
++				/* HarmonyOS patch: protocolOf 手动回退 —— ArkWeb(华为官方浏览器)对未知 scheme 按不透明 URL
++		   解析, hostname 恒为空导致资源协议识别失败; 拿不到 host 时按 dsh-resource://<protocol>/ 手工拆解。 */
++		function manualProtocolOf(address) {
++			const match = /^dsh-resource:\/\/([^/?#]+)/i.exec(String(address));
++			return match ? match[1].toLowerCase() : void 0;
++		}
++function protocolOf(address) {
+ 			let parsed;
+ 			try {
+ 				parsed = new URL(address);
+@@ -21,7 +27,7 @@ window.__ModuleLoader__.load({
+ 				return;
+ 			}
+ 			if (parsed.protocol !== `dsh-resource:`) return void 0;
+-			return parsed.hostname === "" ? void 0 : parsed.hostname.toLowerCase();
++			return parsed.hostname === "" ? manualProtocolOf(address) : parsed.hostname.toLowerCase();
+ 		}
+ 		function idle(status) {
+ 			return {

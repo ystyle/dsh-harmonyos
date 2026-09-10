@@ -1,6 +1,13 @@
 # 固化方案：从"安装时锚点打补丁"到"fork + npm overrides 别名"
 
-> 状态：草案（未实施） · 日期：2026-09-10 · 作者：dsh-harmonyos 维护者
+> 状态：**M0/M1 已实现（分支 `feat/fork-overrides`，未合并未发布）** · 日期：2026-09-10 · 作者：dsh-harmonyos 维护者
+>
+> 进度快照：
+> - ✅ M0：`sync-forks` 管道（拉上游 tarball → git apply diff → 标记校验 → 改 manifest）+ `file:` overrides 别名验证（单包）
+> - ✅ M1：8 个 fork 的 `fork-patches/*.patch` 全部生成并验证（标记齐全、`git apply` 干净、8/8 overrides 解析到 fork）
+> - ✅ 工具：`scripts/sync-forks.mjs`（sync/--publish/--check/--materialize）、`scripts/cutover-overrides.mjs`（dry-run 默认）、`.github/workflows/forks.yml`
+> - ⏳ 待发布后（不在本分支做）：`npm run sync-forks -- --publish` 发 8 个 `@dsh-harmonyos/*` → `npm run cutover -- --apply` 切 npm: 别名 → 验证 → 发本体
+> - 关键实现细节：`.forks-out/` 位于本仓库内，`git apply` 前必须 `git init`（否则解析到外层仓库根）；patch.mjs 各函数按自身标记幂等，fork 装进来后自动 no-op 退役
 > 目标读者：本仓库维护者。本文解决一个具体问题：**把 `lib/patch.mjs` 这套安装时锚点打补丁的脆机制，换成"源码本来就是对"的固定机制。**
 
 ---

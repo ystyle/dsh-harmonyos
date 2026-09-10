@@ -30,6 +30,7 @@
     "preflight": "node ./lib/anchors.mjs",
     "prune": "node ./lib/prune.mjs",
     "sync-forks": "node ./scripts/sync-forks.mjs",
+    "cutover": "node ./scripts/cutover-overrides.mjs",
     "test": "node ./scripts/smoke.mjs"
   },
   "dependencies": {

@@ -1,0 +1,25 @@
+diff --git a/lib/index.js b/lib/index.js
+index 1d1ae89..3169a4a 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -532,7 +532,19 @@ async function writeFileAtomic(absolutePath, content, mode, signal, internals =
+ 		if (createIfAbsent !== void 0) try {
+ 			await linkFile(tempPath, absolutePath);
+ 		} catch (error) {
+-			await throwGuardedCreateFailure(error, absolutePath, createIfAbsent.displayPath, inspectPublicationTarget);
++			let existing;
++			try {
++				existing = await inspectPublicationTarget(absolutePath);
++			} catch (metadataError) {
++				if (!isENOENT(metadataError) && !isENOTDIR(metadataError)) throw new FsError(`cannot write "${createIfAbsent.displayPath}": ${errorMessage(metadataError)}`, "FS_IO_ERROR", { cause: metadataError });
++			}
++			if (existing !== void 0) {
++				await throwGuardedCreateFailure(error, absolutePath, createIfAbsent.displayPath, inspectPublicationTarget);
++			}
++			// HarmonyOS /storage mounts reject hard links with EPERM even for
++			// absent targets; publish via rename instead (target absence was
++			// just verified, so create-if-absent semantics are preserved).
++			await rename(tempPath, absolutePath);
+ 		}
+ 		else if (platform === "win32" && mode !== void 0) try {
+ 			await replaceFile(absolutePath, tempPath);
