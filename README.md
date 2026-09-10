@@ -2,25 +2,20 @@
 
 DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿蒙 PC(musl arm64 / 受限存储)上完整跑起来。
 
-> **v0.8.0**: 基于官方 `@deepseek-ai/dsh` **0.1.5-rc.1**, 运行时 **node26**(原生 zstd,
-> 建议经 [Harmonybrew](https://atomgit.com/Harmonybrew) 安装)。koffi/node-pty 为 **鸿蒙 PC 预编译**
-> (prebuilt/, hmsign-release AGC 签名, 全局可信), sharp 走 **wasm32**(无原生 dlopen 依赖)。
-> **真实 Agent 全链路已跑通**(deepseek-v4-flash → 思考 → bash/文件工具 → 交付, headless 与 web 均实测)。
-> **v0.8.0 升级 0.1.5-rc.1**: 补丁引擎锚点**零改动**(18/18 命中, 新增 `npm run preflight` 预检兜住后续升级);
-> 原生依赖版本未变(node-pty 1.2.0-beta.15 / koffi 3.2.1 / sharp 0.35.4), **prebuilt 无需重做**;
-> 修复 ① `patchSandboxPolicy` 定义了但**从未被 `patchAll` 调用**(与 v0.7.3 的 `patchFsSearch` 同类漏调用);
-> ② rc.1 的 permission 服务在构造期改用 approval policy 反推默认 preset, 不显式指定即抛
-> "composed sandbox and approval defaults match no preset" → 启动器注入 `DSH_PERMISSION_MODE=danger-full-access`。
-> **v0.8.1 修复历史会话迁移 EPERM**: rc.1 新增第 2 条 link 发布路径 `publishCurrentExclusive`
-> (v2→v3 会话迁移), 而原 `patchSession` 用「文件含 MARK 就整体跳过」做幂等 —— 标记来自第 1 条补丁,
-> 于是第 2 条**永远漏补**, 表现为**新建会话正常、打开老会话即 EPERM**。已改逐点幂等 + rename 回退;
-> 同类补齐 `dsh-attachment-local` 的 `publishImmutableAlias`(改 `copyFile` + `COPYFILE_EXCL`, 因源是内容寻址原件不可移走)。
-> **v0.8.2 修复华为官方浏览器(ArkWeb)文件预览「文件资源服务不可用」**: ArkWeb 把未知 scheme
-> (`dsh-resource://`) 当**不透明 URL** 解析, `new URL(...)` 的 `hostname` 恒为空 → 客户端资源协议
-> 识别失败 → 侧边栏文件预览 `meta.status="none"`(文件树/模型列表不走资源协议, 故正常, 极易误判)。
-> 新增补丁 `patchClientResources`: `dsh-client-resources` 的 `protocolOf` 在解析不到 host 时
-> 按 `dsh-resource://<protocol>/` 手工拆解回退; 其它浏览器/系统为分层解析, 不受影响(本机海泰浏览器验证正常)。
-> License: MIT。
+## 更新日志
+
+- **v0.8.2** (2026-09-10) — 修复华为官方浏览器(ArkWeb)文件预览「文件资源服务不可用」
+  - ArkWeb 把未知 scheme `dsh-resource://` 当不透明 URL 解析, `new URL()` 的 `hostname` 恒为空 → 客户端资源协议识别失败 → 文件预览 `meta.status="none"`(文件树/模型列表不走资源协议, 故正常, 极易误判)
+  - 新增补丁 `patchClientResources`: `protocolOf` 解析不到 host 时按 `dsh-resource://<protocol>/` 手工拆解回退; 标准浏览器/系统为分层解析, 不受影响
+- **v0.8.1** (2026-09-10) — 修复历史会话迁移 EPERM
+  - rc.1 新增第 2 条 link 发布路径 `publishCurrentExclusive`(v2→v3 会话迁移), 原 `patchSession` 以「文件含 MARK 整体跳过」做幂等 → 第 2 条永远漏补, 表现为新建会话正常、打开老会话即 EPERM
+  - 改为逐点幂等 + rename 回退; 同类补齐 `dsh-attachment-local` 的 `publishImmutableAlias`(`copyFile` + `COPYFILE_EXCL`)
+- **v0.8.0** (2026-09-10) — 适配官方 dsh 0.1.5-rc.1
+  - 官方 `@deepseek-ai/dsh` **0.1.5-rc.1**; 运行时 **node26**(原生 zstd, 建议经 [Harmonybrew](https://atomgit.com/Harmonybrew) 安装); koffi/node-pty 鸿蒙 PC 预编译(AGC 签名), sharp 走 **wasm32**(无原生 dlopen 依赖)
+  - 升级面: 补丁引擎锚点零改动(新增 `npm run preflight` 预检兜住后续升级); 原生依赖版本未变 → **prebuilt 无需重做**
+  - 修复: ① `patchSandboxPolicy` 定义了但从未被 `patchAll` 调用(与 v0.7.3 的 `patchFsSearch` 同类漏调用); ② rc.1 的 permission 服务在构造期反推默认 preset, 不显式指定即抛错 → 启动器注入 `DSH_PERMISSION_MODE=danger-full-access`
+  - 附带: 启动器清理无主写锁 + 信号转发(防孤儿 dsh 进程); compat 改 `registerHooks()` 消除 node26 弃用警告
+  - 验证: 真实 Agent 全链路(deepseek-v4-flash → 思考 → bash/文件工具 → 交付, headless + web 均实测)
 
 ## 环境要求
 
