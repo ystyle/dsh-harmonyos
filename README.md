@@ -4,6 +4,11 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.10.0** (2026-09-11) — fork + overrides 固化（安装零补丁）
+  - 官方 `@deepseek-ai/dsh` → **0.1.5-rc.2**（与 rc.1 仅依赖版本号升级，源码零差异，prebuilt 无需重做）
+  - 8 个平台语义改动固化为 `@dsh-harmonyos/*` fork 包（`fork-patches/*.patch` diff 即真值），`package.json` overrides 经 `npm:` 别名接入 → 安装即正确，patch.mjs 对应条目因标记幂等自动退役，残余（回环免 token、settings 垫片等）仍兜底
+  - 工具链：`scripts/forks-list.mjs`（FORKS 单一事实源）、`sync-forks`（重建/校验/发布）、`cutover`（overrides 切换）；CI 增加 fork 重建门禁；`preflight` 改为 fork 文件跳过 + 残余锚点核对
+  - 验证：`npm ci --ignore-scripts` 后 13 处 fork 实例全解析 + preflight 全绿 + smoke PASS
 - **v0.9.0** (2026-09-10) — 新增内置系统提示词预设（`harmonyos-chat`）
   - 仓库携带 `presets/harmonyos-chat/`（基于官方 `standard` 的完整编码 Agent），persona 预置鸿蒙运行环境说明（鸿蒙内核 / `target=linux-aarch64-ohos` / 与 Linux ABI 兼容但非 Linux / `/tmp` 只读 / 临时文件写 `$TMPDIR`=~/.cache），新会话开箱即带系统提示词
   - 启动器首启自动 seed 到 `~/.dsh/.agent-presets/harmonyos-chat/` 并设为默认预设（用户已设置过默认则不覆盖）；`DSH_OHOS_PRESET=off|<id>` 可关闭/改名
