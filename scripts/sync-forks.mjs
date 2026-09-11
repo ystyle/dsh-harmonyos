@@ -33,7 +33,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-session-persistence-jsonl',
     upstream: '@deepseek-ai/dsh-session-persistence-jsonl',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-session-persistence-jsonl.patch',
     markers: [
@@ -44,7 +44,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-attachment-local',
     upstream: '@deepseek-ai/dsh-attachment-local',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-attachment-local.patch',
     markers: [
@@ -55,7 +55,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-fs-local',
     upstream: '@deepseek-ai/dsh-fs-local',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-fs-local.patch',
     markers: ['HarmonyOS /storage mounts reject hard links'],
@@ -71,7 +71,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-client-resources',
     upstream: '@deepseek-ai/dsh-client-resources',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-client-resources.patch',
     markers: ['HarmonyOS patch: protocolOf 手动回退'],
@@ -79,7 +79,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-tool-fs-search',
     upstream: '@deepseek-ai/dsh-tool-fs-search',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-tool-fs-search.patch',
     markers: ['DSH_RG_PATH'],
@@ -87,7 +87,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-credentials-local',
     upstream: '@deepseek-ai/dsh-credentials-local',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-credentials-local.patch',
     markers: ['HarmonyOS patch: 文件系统强制组位'],
@@ -95,7 +95,7 @@ const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-sandbox-policy',
     upstream: '@deepseek-ai/dsh-sandbox-policy',
-    version: '0.1.5-rc.1',
+    version: '0.1.5-rc.2',
     harmony: 1,
     patch: 'dsh-sandbox-policy.patch',
     markers: ['DSH_OHOS_FORCE_DANGER'],
@@ -200,8 +200,10 @@ function materializeOne(f) {
 
 function publishOne(f, dir) {
   const ver = forkVersion(f);
-  console.log(`  发布 ${f.fork}@${ver} …`);
-  const out = sh(`npm publish "${dir}" --access public --registry=${REGISTRY}`, ROOT).trim();
+  // npm 9+: prerelease 版本(含 '-')必须显式 --tag; 正式版用 latest 保持默认安装语义。
+  const tag = ver.includes('-') ? 'next' : 'latest';
+  console.log(`  发布 ${f.fork}@${ver} (dist-tag: ${tag}) …`);
+  const out = sh(`npm publish "${dir}" --access public --registry=${REGISTRY} --tag ${tag}`, ROOT).trim();
   console.log(`  ✔ ${out.split('\n').pop()}`);
 }
 

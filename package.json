@@ -34,8 +34,8 @@
     "test": "node ./scripts/smoke.mjs"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-host-directory-picker-auto": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-host-directory-picker-auto": "^0.1.5-rc.2",
     "zstd-codec": "^0.1.5",
     "@img/sharp-wasm32": "0.35.4"
   },
