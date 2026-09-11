@@ -13,6 +13,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, copyF
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { locateDshDir } from '../lib/locate.mjs';
+import { FORKS } from '../scripts/forks-list.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // dsh 定位: 支持嵌套(依赖装进包内 node_modules)与平铺(标准 npm -g 平铺到 node_modules 容器)布局,
@@ -71,6 +72,28 @@ if (!dshVersion || markerVersion() !== dshVersion) {
 const DSLIB = join(NM, '@deepseek-ai', 'dsh', 'lib', 'bin.js');
 const LOADER = join(ROOT, 'compat', 'register.mjs');   // module.register() 引导(--import), 替代弃用的 --experimental-loader
 const OVERLAY = join(ROOT, 'overlays', 'harmonyos.patch.yml');
+
+// fork 包名还原: npm 别名安装的 fork 包(package.json name=@dsh-harmonyos/*)会被 dsh
+// client-modules 的「name === 声明名」严格匹配剔除出 web 客户端装配清单(nearestPackage)——
+// 表现就是 client-resources 不加载 → resources 服务缺失 → web boot pending、界面无聊天框。
+// 目录名本就是官方名(@deepseek-ai/<pkg>), 这里把包内 name 改回官方名(version 保留
+// -harmony.N 区分 fork), 幂等, 每次启动执行(快)。
+function restoreForkNames() {
+  let fixed = 0;
+  for (const f of FORKS) {
+    const short = f.upstream.split('/')[1];
+    const pj = join(NM, '@deepseek-ai', short, 'package.json');
+    let pkg;
+    try { pkg = JSON.parse(readFileSync(pj, 'utf8')); } catch { continue; }
+    if (pkg.name === f.upstream) continue;
+    pkg.name = f.upstream;
+    writeFileSync(pj, JSON.stringify(pkg, null, 2) + '\n');
+    console.error(`dsh-ohos: fork 包名还原 ${pkg.name}@${pkg.version} → ${f.upstream}`);
+    fixed += 1;
+  }
+  if (fixed) console.error(`dsh-ohos: 已还原 ${fixed} 个 fork 包名(修复 web boot pending)`);
+}
+restoreForkNames();
 
 if (!existsSync(DSLIB)) {
   console.error('dsh-ohos: 未找到 ' + DSLIB + ' — 请先在本仓库 npm install(拉取 @deepseek-ai/dsh)');

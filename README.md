@@ -4,6 +4,10 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.10.4** (2026-09-11) — **修复 web boot pending 根因：fork 包名还原**
+  - 根因：`sync-forks` 发布 fork 时把 package.json `name` 改为 `@dsh-harmonyos/*`（npm publish 要求），但 dsh 的 `client-modules` 用「`name === 声明名`」严格匹配收集客户端插件（`nearestPackage`）→ fork 名不匹配 → `dsh-client-resources` 被剔除出 web 装配清单 → `resources` 服务缺失 → 5 个客户端插件 pending、聊天框不出现
+  - 修复：启动器每次启动执行 `restoreForkNames()`（幂等）——把 8 个 fork 包 `name` 改回官方名（目录名本就是官方名；`version` 保留 `-harmony.N` 区分 fork）
+  - 验证：真实 Chrome（CDP）全新安装 0.10.4 → 打包端点恢复 54 模块（含 client-resources）→ pending 消失、聊天框出现、界面正常；0.10.0（官方包名）从未有此问题，佐证根因
 - **v0.10.3** (2026-09-11) — koffi/node-pty 全实例铺位（嵌套布局完整可用）
   - `findPkgDirs` 递归找全部实例（深度 20）：嵌套布局下 koffi 可深达 13 层（`dsh→dsh-base→dsh-sandbox-local→dsh-sandbox-windows-acl→koffi`），此前只铺顶层/浅层 → 深层实例无二进制 → boot 报 `Cannot find the native Koffi module`
   - 实测（嵌套布局干净树）：koffi 全实例铺位 + `dsh web` + 模拟浏览器 303 + **0 pending** 全通过
