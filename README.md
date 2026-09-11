@@ -10,7 +10,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 - **v0.10.2** (2026-09-11) — 嵌套布局加固：patch 深挖 10 层 + 空实例容错
   - `locatePkgFiles` 深度 6→10：npm 嵌套布局下 dsh 的依赖可深达 7 层（`dsh/node_modules/@deepseek-ai/…`），6 层会漏掉 `dsh-settings` 等残余补丁目标导致自愈失败
   - `patchEvery` 空实例不再中断：嵌套布局下 npm 可能漏装传递依赖（如 `dsh-client-connection`），改为显式警告 + skipped，其余可打补丁照常打
-  - 注：**推荐标准平铺安装**（`npm i -g` 默认 hoisted）——嵌套布局 + 别名依赖组合下 npm 有漏装传递依赖的已知问题，平铺已实测完整可用
+  - 注：**标准 `npm i -g` 的默认布局就是包内嵌套**（`<prefix>/lib/node_modules/<pkg>/node_modules/...`）；0.10.3 起嵌套与平铺布局均已完整支持（patch 深挖 + koffi/node-pty 全实例铺位），0.10.2 的"推荐平铺"措辞已过时
 - **v0.10.1** (2026-09-11) — 修复 fork 固化在 `npm i -g` 场景不生效 + 平铺布局支持
   - **overrides → dependencies 别名**：npm 的 `overrides` 只在「命令根项目」生效，`npm i -g dsh-harmonyos` 时包内 overrides 被忽略 → fork 装不上、退回全量打补丁。改为 dependencies 里的 `npm:` 别名（`"@deepseek-ai/dsh-fs-local": "npm:@dsh-harmonyos/dsh-fs-local@…"`），任意安装场景都解析到 fork
   - **定位逻辑抽为 `lib/locate.mjs`**（启动器/patch/prune/anchors 共用）：支持平铺（标准 `npm -g` 依赖平铺到 node_modules 容器）与嵌套两种布局，此前启动器只认包内 node_modules，平铺安装直接报「未找到 dsh」
