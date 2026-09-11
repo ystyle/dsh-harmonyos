@@ -4,6 +4,9 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.10.3** (2026-09-11) — koffi/node-pty 全实例铺位（嵌套布局完整可用）
+  - `findPkgDirs` 递归找全部实例（深度 20）：嵌套布局下 koffi 可深达 13 层（`dsh→dsh-base→dsh-sandbox-local→dsh-sandbox-windows-acl→koffi`），此前只铺顶层/浅层 → 深层实例无二进制 → boot 报 `Cannot find the native Koffi module`
+  - 实测（嵌套布局干净树）：koffi 全实例铺位 + `dsh web` + 模拟浏览器 303 + **0 pending** 全通过
 - **v0.10.2** (2026-09-11) — 嵌套布局加固：patch 深挖 10 层 + 空实例容错
   - `locatePkgFiles` 深度 6→10：npm 嵌套布局下 dsh 的依赖可深达 7 层（`dsh/node_modules/@deepseek-ai/…`），6 层会漏掉 `dsh-settings` 等残余补丁目标导致自愈失败
   - `patchEvery` 空实例不再中断：嵌套布局下 npm 可能漏装传递依赖（如 `dsh-client-connection`），改为显式警告 + skipped，其余可打补丁照常打

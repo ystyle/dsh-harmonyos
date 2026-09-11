@@ -98,10 +98,28 @@ function codeSign(file) {
   return true;
 }
 
+// 递归找某包的全部实例(嵌套布局下 koffi/node-pty 可能多份: 深层包各自嵌装)。
+// 找到含 package.json 的合法实例即不下钻(避免把 koffi 包内的 src/koffi、build/koffi 误当实例)。
+function findPkgDirs(name, from = NM) {
+  const found = [];
+  (function walk(dir, depth) {
+    // 深度 20: 嵌套布局下 koffi 可深达 13 层(dsh→dsh-base→dsh-sandbox-local→dsh-sandbox-windows-acl→koffi)。
+    if (depth > 20) return;
+    let ents;
+    try { ents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of ents) {
+      if (!e.isDirectory()) continue;
+      const full = join(dir, e.name);
+      if (e.name === name && existsSync(join(full, 'package.json'))) { found.push(full); continue; }
+      if (e.name !== '.bin') walk(full, depth + 1);
+    }
+  })(from, 0);
+  return found;
+}
+
 // koffi 就地构建: 补丁 cnoke(cmake 认 Linux/aarch64) + cnoke 构建 + .codesign 签名。
 function ensureKoffi(nodeBin) {
-  const dirs = [];
-  try { for (const e of readdirSync(NM)) if (e === 'koffi') dirs.push(join(NM, e)); } catch { /* ignore */ }
+  const dirs = findPkgDirs('koffi');
   if (dirs.length === 0) { console.error('dsh-ohos: 树里没有 koffi — subprocess 需要真 koffi'); return; }
   for (const dir of dirs) {
     const cnoke = join(dir, 'cnoke.cjs');
@@ -164,15 +182,7 @@ function ensureSharp() {
 
 
 function ensurePty(nodeBin) {
-  const dirs = [];
-  try { for (const e of readdirSync(NM)) if (e === 'node-pty') dirs.push(join(NM, e)); } catch { /* ignore */ }
-  if (dirs.length === 0) {
-    // npm11 可能嵌套在 @deepseek-ai/dsh/node_modules 等; 浅层补扫
-    try { for (const a of readdirSync(NM)) {
-      const sub = join(NM, a, 'node_modules');
-      try { for (const e of readdirSync(sub)) if (e === 'node-pty') dirs.push(join(sub, e)); } catch { /* ignore */ }
-    } } catch { /* ignore */ }
-  }
+  const dirs = findPkgDirs('node-pty');
   if (dirs.length === 0) {
     console.error('dsh-ohos: 树里没有 node-pty(依赖缺失?) — subprocess 行将无法加载');
     return;
