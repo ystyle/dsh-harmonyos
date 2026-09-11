@@ -4,6 +4,10 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.10.5** (2026-09-11) — **修复 node-addon-system/flock 嵌套实例漏补丁（会话 resume 失败根因）**
+  - 根因：`patchNodeAddonFlock()` 此前只会补 `node_modules/@deepseek-ai/node-addon-system` 顶层一份，但 npm 嵌套布局下 `dsh-session-persistence-jsonl`、`dsh-sandbox-local` 各自还带一份 `@deepseek-ai/node-addon-system`（上游 0.1.2）→ 运行时解析到未补丁的嵌套副本 → 打开/恢复历史会话报 `Cannot find module '@deepseek-ai/node-addon-system-linux-arm64/package.json'`（`gateway/internal: resume failed`）
+  - 修复：新增 `nodeAddonFlockFiles()` 按包名递归定位**全部** `lib/flock.js` 实例，`patchEvery` 逐实例打补丁；校验段同步改为逐实例校验（漏打任意一份即报错）
+  - 影响：0.10.2 的「嵌套布局加固」只覆盖了走 `allInstances()` 的补丁，`patchNodeAddonFlock` 是唯一硬编码顶层路径的漏网之鱼；本次一并修掉
 - **v0.10.4** (2026-09-11) — **修复 web boot pending 根因：fork 包名还原**
   - 根因：`sync-forks` 发布 fork 时把 package.json `name` 改为 `@dsh-harmonyos/*`（npm publish 要求），但 dsh 的 `client-modules` 用「`name === 声明名`」严格匹配收集客户端插件（`nearestPackage`）→ fork 名不匹配 → `dsh-client-resources` 被剔除出 web 装配清单 → `resources` 服务缺失 → 5 个客户端插件 pending、聊天框不出现
   - 修复：启动器每次启动执行 `restoreForkNames()`（幂等）——把 8 个 fork 包 `name` 改回官方名（目录名本就是官方名；`version` 保留 `-harmony.N` 区分 fork）
