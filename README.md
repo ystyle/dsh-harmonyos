@@ -99,8 +99,8 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 | 平台归一 | `compat/register.mjs` | `process.platform` 归一为 `linux`(module.register 引导)。鸿蒙 node 上报 `openharmony`, 会让按平台分发的包匹配失败 |
 | 启动器 | `bin/dsh-ohos.js` | 读 `NODE_OHOS`(强制); 首启自愈; 注入 `DSH_OHOS_FORCE_DANGER=1`(默认非沙箱); seed `permission.defaultPreset=danger-full-access`; **seed 内置预设 `presets/harmonyos-chat`(系统提示词开箱自带, 见下)**; 固定 `--expose-internals --experimental-sqlite --import compat/register.mjs`; 受限沙箱自动 `--jitless` |
 | compat loader | `compat/compat-loader.mjs` | 模块重定向: `node:zlib`/`node:module`(原生优先, 旧 node 回退 shim)、`fs-ext`(flock stub)、`koffi`(默认走真构建; `DSH_OHOS_KOFFI=shim` 退回 stub)、sharp 不拦截(wasm32 后端) |
-| 源码补丁 | `lib/patch.mjs` | 幂等打官方包: 硬链接 EPERM→rename、chmod 600 属主检查跳过、回环免 token、settings 旧 API 垫片、**sandbox-policy 默认 mode=danger**、**fs-search 支持 DSH_RG_PATH**。**npm 11 嵌套布局多实例全部补丁并逐一校验** |
-| 升级预检 | `lib/anchors.mjs` | **`npm run preflight [树路径]`**: 在未打补丁的树上核对全部补丁锚点是否仍命中。官方升级后先在隔离 staging 树跑它, 就能在动生产树之前知道要不要改锚点 |
+| 源码补丁 | `lib/patch.mjs` + `package.json` **overrides** | 8 个平台语义改动已 **fork 固化**(`@dsh-harmonyos/*` 经 overrides 替身, 安装即正确, 见 `fork-patches/`); patch.mjs 对 fork 条目因标记幂等自动 no-op, 残余(回环免 token、settings 垫片等)仍兜底。**npm 11 嵌套布局多实例全部覆盖** |
+| 升级预检 | `lib/anchors.mjs` | **`npm run preflight [树路径]`**: fork 文件(自带标记)逐文件跳过, 残余(未 fork)锚点必须全部命中。官方升级后残余锚点漂移会在这里被拦下 |
 | profile 层 | `overlays/harmonyos.patch.yml` + `lib/prune.mjs` | overlay **启用** subprocess/sandbox/bash-sandbox/open-in-app/**tool-fs-search**(走 DSH_RG_PATH); prune 仅移除 pwsh-sandbox |
 | 预编译 | `prebuilt/` | koffi-3.2.1 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
 
@@ -108,23 +108,24 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 
 ### 升级官方 dsh 的安全流程
 
-运行时补丁打在 `node_modules` 里的官方包上, `npm install` 会冲掉它们 —— 所以**永远不要在生产安装目录里原地 `npm i`**。
-按下面的顺序做, 生产树全程不受影响:
+fork 之后, 上游源码改动以 `fork-patches/*.patch` 版本化在本仓库(diff 即真值), 上游升级时 diff 重新应用到新 tarball; 失配会**报错拒绝**(绝不静默打错)。按下面的顺序做, 生产树全程不受影响:
 
 ```sh
-# 1. 改 pin(两处必须同步升, 否则会把上一版 dsh-base 再拉一份)
+# 1. 升 pin + 更新 FORKS 清单版本(scripts/forks-list.mjs), 两处必须同步
 #    @deepseek-ai/dsh 与 @deepseek-ai/dsh-host-directory-picker-auto
-vi package.json && npm install --package-lock-only --ignore-scripts
+vi package.json scripts/forks-list.mjs && npm install --package-lock-only --ignore-scripts
 
-# 2. 在与生产同构的隔离目录里装新树(不碰生产)
-git clone <本仓库> /tmp/new && cd /tmp/new
-npm install --ignore-scripts --no-audit --no-fund
+# 2. 重建全部 fork(diff apply 到新 tarball, 标记校验; 失配会列出需人工修的 patch)
+npm run sync-forks
 
-# 3. 锚点预检 —— 这一步告诉你要不要改补丁引擎
-npm run preflight
+# 3. 发布 fork 包(需 @dsh-harmonyos scope 的 NODE_AUTH_TOKEN)
+npm run sync-forks -- --publish
 
-# 4. 打补丁 + 冒烟
-npm run patch && npm run prune && npm test
+# 4. 本地全量验证(fork 树安装零补丁 + 残余锚点预检 + 端到端冒烟)
+npm ci --ignore-scripts && npm run preflight && npm test
+
+# 5. 发本体(cutover 已把 overrides 指向新 fork 版本)
+#    bump package.json 版本 → 打 v* tag(自动发布)
 ```
 
 四步全绿后再替换生产目录(同一父目录内两次 rename 原子切换, 便于回滚):

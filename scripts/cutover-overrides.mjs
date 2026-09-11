@@ -15,27 +15,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FORKS, forkVersion } from './forks-list.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PKG = join(ROOT, 'package.json');
-
-// 与 sync-forks.mjs 的 FORKS 清单保持一致(来源唯一: 从 sync-forks 读取不易, 此处显式列出)。
-const FORKS = [
-  { upstream: '@deepseek-ai/dsh-session-persistence-jsonl', fork: '@dsh-harmonyos/dsh-session-persistence-jsonl', version: '0.1.5-rc.1-harmony.1' },
-  { upstream: '@deepseek-ai/dsh-attachment-local',           fork: '@dsh-harmonyos/dsh-attachment-local',           version: '0.1.5-rc.1-harmony.1' },
-  { upstream: '@deepseek-ai/dsh-fs-local',                   fork: '@dsh-harmonyos/dsh-fs-local',                   version: '0.1.5-rc.1-harmony.1' },
-  { upstream: '@deepseek-ai/node-addon-system',              fork: '@dsh-harmonyos/node-addon-system',              version: '0.1.2-harmony.1' },
-  { upstream: '@deepseek-ai/dsh-client-resources',           fork: '@dsh-harmonyos/dsh-client-resources',           version: '0.1.5-rc.1-harmony.1' },
-  { upstream: '@deepseek-ai/dsh-tool-fs-search',             fork: '@dsh-harmonyos/dsh-tool-fs-search',             version: '0.1.5-rc.1-harmony.1' },
-  { upstream: '@deepseek-ai/dsh-credentials-local',          fork: '@dsh-harmonyos/dsh-credentials-local',          version: '0.1.5-rc.1-harmony.1' },
-  { upstream: '@deepseek-ai/dsh-sandbox-policy',             fork: '@dsh-harmonyos/dsh-sandbox-policy',             version: '0.1.5-rc.1-harmony.1' },
-];
 
 const dryRun = !process.argv.includes('--apply');
 
 function buildOverrides() {
   const overrides = {};
-  for (const f of FORKS) overrides[f.upstream] = `npm:${f.fork}@${f.version}`;
+  for (const f of FORKS) overrides[f.upstream] = `npm:${f.fork}@${forkVersion(f)}`;
   return overrides;
 }
 
