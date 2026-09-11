@@ -1,0 +1,43 @@
+# dsh-harmonyos fork 包自动发布: push `forks-v*` tag(或手动)→ 重建并发布 @dsh-harmonyos/*。
+# 说明: fork 包 = 上游 tarball + fork-patches/*.patch(sync-forks 重建); 本工作流只发 fork 包,
+#       不发 dsh-harmonyos 本体(本体走 publish.yml, 且需先跑 cutover 把 overrides 指向新 fork)。
+name: forks
+
+on:
+  push:
+    tags: ['forks-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-forks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # 重建并发布全部 @dsh-harmonyos/*(diff 应用失败即报错, 人工修 fork-patches 后重试)
+      - name: 重建并发布 fork 包
+        run: npm run sync-forks -- --publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # 发布后 overrides 需指向新 fork 版本(手动跑 npm run cutover -- --apply 后随本体提交)
+      - name: 提示下一步
+        run: |
+          echo "fork 包已发布。下一步(人工): npm run cutover -- --apply → 提交 → 打 v* tag 发本体"
+          git diff --stat package.json || true

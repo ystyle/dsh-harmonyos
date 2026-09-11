@@ -1,0 +1,13 @@
+diff --git a/lib/index.js b/lib/index.js
+index 37c6824..bcee319 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -122,7 +122,7 @@ function resolveRgPath() {
+ 		const executable = parse(process.execPath);
+ 		const executableSidecar = process.platform === "win32" ? join(executable.dir, `${executable.name}-rg.exe`) : `${process.execPath}-rg`;
+ 		if ("pkg" in process && existsSync(executableSidecar)) return executableSidecar;
+-		return (await import("@vscode/ripgrep")).rgPath;
++		return process.env.DSH_RG_PATH || (await import("@vscode/ripgrep")).rgPath; // dsh-harmonyos
+ 	});
+ 	return rgPathPromise;
+ }

@@ -1,0 +1,30 @@
+diff --git a/lib/flock.js b/lib/flock.js
+index bf2a1b0..2421579 100644
+--- a/lib/flock.js
++++ b/lib/flock.js
+@@ -6,22 +6,9 @@ let binding;
+ function loadBinding() {
+     if (binding)
+         return binding;
+-    const { platform, arch } = process;
+-    if (platform !== 'linux' && platform !== 'darwin') {
+-        throw Object.assign(new Error(`flock is not supported on ${platform}-${arch}`), {
+-            code: 'ERR_FLOCK_UNSUPPORTED_PLATFORM',
+-            syscall: 'flock',
+-        });
+-    }
+-    let filename = 'system.node';
+-    if (platform === 'linux') {
+-        // Node's report types omit the libc field supplied by Linux reports.
+-        const report = process.report.getReport();
+-        filename = join(report.header.glibcVersionRuntime ? 'glibc' : 'musl', filename);
+-    }
+-    const require = createRequire(import.meta.url);
+-    const manifest = require.resolve(`@deepseek-ai/node-addon-system-${platform}-${arch}/package.json`);
+-    binding = require(join(dirname(manifest), 'bin', filename));
++    // HarmonyOS no-op memory flock: OHOS 无 system.node 原生绑定(平台门控装不上)。
++    // errno 0 = 获取成功, tryLockExclusive 随即 resolve(与 fs-ext shim 同语义: 单进程无需跨进程锁)。
++    binding = { tryLock: (_fd, callback) => callback(0) };
+     return binding;
+ }
+ /**

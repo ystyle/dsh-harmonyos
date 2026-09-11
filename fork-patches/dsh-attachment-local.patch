@@ -1,0 +1,83 @@
+diff --git a/lib/index.js b/lib/index.js
+index fec538f..69099cc 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -4,7 +4,7 @@ import { AttachmentError, AttachmentId, AttachmentStore, ImageVariantId, request
+ import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
+ import { createHash, randomUUID } from "node:crypto";
+ import { constants, createReadStream } from "node:fs";
+-import { chmod, link, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
++import { chmod, copyFile, link, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+ import sharp from "sharp";
+ //#region lib/types/compression-limiter.js
+ /** Instance-owned concurrency bound for native image transformations. */
+@@ -350,7 +350,16 @@ async function syncDirectory(path) {
+ 	/* v8 ignore next -- Windows cannot open directory handles; NTFS metadata journaling owns entry durability there. */
+ 	if (process.platform === "win32") return;
+ 	/* v8 ignore start -- Windows cannot exercise directory fsync; POSIX behavior tests enforce this peer. */
+-	const handle = await open(path, constants.O_RDONLY);
++	/* HarmonyOS patch: 部分挂载点/目录无法以只读句柄打开(EPERM/EACCES/ENOTSUP)，跳过该次 fsync，持久化归挂载所有者。 */
++	let handle;
++	try {
++		handle = await open(path, constants.O_RDONLY);
++	} catch (error) {
++		/* v8 ignore next -- 无法 fsync 的边界走 return，不再上抛。 */
++		if (error instanceof Error && "code" in error && ["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) return;
++		/* v8 ignore next -- 其余错误如实上抛。 */
++		throw error;
++	}
+ 	try {
+ 		await handle.sync();
+ 	} finally {
+@@ -471,9 +480,21 @@ async function publishImmutableAlias(root, source, target, sha256) {
+ 		try {
+ 			await link(source, target);
+ 		} catch (error) {
+-			/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
+-			if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+-			if (await digestFile(target) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");
++			/* HarmonyOS patch: publishImmutableAlias —— /storage 挂载对 link() 报 EPERM，改用 copyFile(COPYFILE_EXCL) 复制别名；*/
++			/* source 是内容寻址原件，不能被 rename 移走，故只能复制。 */
++			if (error instanceof Error && "code" in error && error.code === "EPERM") {
++				try {
++					await copyFile(source, target, constants.COPYFILE_EXCL);
++				} catch (copyError) {
++					/* v8 ignore next -- copy 竞态: EEXIST 视为已发布, 校验完整性。 */
++					if (!(copyError instanceof Error && "code" in copyError && copyError.code === "EEXIST")) throw copyError;
++					if (await digestFile(target) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");
++				}
++			} else {
++				/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
++				if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
++				if (await digestFile(target) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");
++			}
+ 		}
+ 		await chmod(target, 256);
+ 		const stop = resolve(root);
+@@ -532,11 +553,22 @@ async function publishStagedObject(root, target, staged) {
+ 		try {
+ 			await link(staged.path, target);
+ 		} catch (error) {
+-			/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
+-			if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+-			if (await digestFile(target) !== staged.sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");
++			/* HarmonyOS patch: /storage 挂载对 link() 报 EPERM, 改按 rename 发布(staged 同文件系统已 durable)。 */
++			if (error instanceof Error && "code" in error && error.code === "EPERM") {
++				try {
++					await rename(staged.path, target);
++				} catch (renameError) {
++					/* v8 ignore next -- rename 竞态: EEXIST 即视为已发布, 校验完整性。 */
++					if (!(renameError instanceof Error && "code" in renameError && renameError.code === "EEXIST")) throw renameError;
++					if (await digestFile(target) !== staged.sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");
++				}
++			} else {
++				/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
++				if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
++				if (await digestFile(target) !== staged.sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");
++			}
+ 		}
+-		await unlink(staged.path);
++		await unlink(staged.path).catch(() => {});
+ 		await chmod(target, 256);
+ 		const stop = resolve(root);
+ 		for (let level = parent; level !== stop; level = dirname(level)) {

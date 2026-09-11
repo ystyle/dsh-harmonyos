@@ -29,11 +29,13 @@
     "check": "node ./lib/patch.mjs check",
     "preflight": "node ./lib/anchors.mjs",
     "prune": "node ./lib/prune.mjs",
+    "sync-forks": "node ./scripts/sync-forks.mjs",
+    "cutover": "node ./scripts/cutover-overrides.mjs",
     "test": "node ./scripts/smoke.mjs"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-host-directory-picker-auto": "^0.1.5-rc.1",
+    "@deepseek-ai/dsh": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-host-directory-picker-auto": "^0.1.5-rc.2",
     "zstd-codec": "^0.1.5",
     "@img/sharp-wasm32": "0.35.4"
   },
@@ -44,5 +46,15 @@
   "homepage": "https://github.com/ystyle/dsh-harmonyos#readme",
   "bugs": {
     "url": "https://github.com/ystyle/dsh-harmonyos/issues"
+  },
+  "overrides": {
+    "@deepseek-ai/dsh-session-persistence-jsonl": "npm:@dsh-harmonyos/dsh-session-persistence-jsonl@0.1.5-rc.2-harmony.1",
+    "@deepseek-ai/dsh-attachment-local": "npm:@dsh-harmonyos/dsh-attachment-local@0.1.5-rc.2-harmony.1",
+    "@deepseek-ai/dsh-fs-local": "npm:@dsh-harmonyos/dsh-fs-local@0.1.5-rc.2-harmony.1",
+    "@deepseek-ai/node-addon-system": "npm:@dsh-harmonyos/node-addon-system@0.1.2-harmony.1",
+    "@deepseek-ai/dsh-client-resources": "npm:@dsh-harmonyos/dsh-client-resources@0.1.5-rc.2-harmony.1",
+    "@deepseek-ai/dsh-tool-fs-search": "npm:@dsh-harmonyos/dsh-tool-fs-search@0.1.5-rc.2-harmony.1",
+    "@deepseek-ai/dsh-credentials-local": "npm:@dsh-harmonyos/dsh-credentials-local@0.1.5-rc.2-harmony.1",
+    "@deepseek-ai/dsh-sandbox-policy": "npm:@dsh-harmonyos/dsh-sandbox-policy@0.1.5-rc.2-harmony.1"
   }
 }

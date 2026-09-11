@@ -24,13 +24,19 @@ jobs:
           cache: npm
 
       # 依赖只装不跑脚本: 与鸿蒙安装一致用 --ignore-scripts(原生包 install 在 CI 无意义)。
+      # overrides 已把 8 个 @deepseek-ai/* 解析到 @dsh-harmonyos/* fork 包(自带改动标记)。
       - name: 安装依赖
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      # 补丁锚点预检: 在未打补丁树上核对全部锚点。官方 dsh 升级后锚点漂移会在这里被拦下,
-      # 而不是等发布后装在鸿蒙上才炸(见 README「升级官方 dsh 的安全流程」)。
+      # 补丁锚点预检: fork 包(自带标记)逐文件跳过, 残余(未 fork, 仍由 patch.mjs 兜底)锚点
+      # 必须全部命中。官方 dsh 升级后残余锚点漂移会在这里被拦下, 而不是等发布后才炸。
       - name: 补丁锚点预检
         run: npm run preflight
+
+      # fork 一致性: 把 fork-patches/*.patch 应用到上游 tarball 重建全部 fork 并校验标记,
+      # 保证 FORKS 清单/diff 与 package.json pin 的上游版本对齐(CI 有网, 拉 tarball 很轻)。
+      - name: fork 重建校验
+        run: npm run sync-forks
 
       # 启动器/补丁引擎/compat/脚本的语法检查(node --check, ESM 按 package.json type 解析)。
       - name: 语法检查
