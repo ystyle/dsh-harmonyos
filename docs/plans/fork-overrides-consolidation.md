@@ -1,12 +1,13 @@
 # 固化方案：从"安装时锚点打补丁"到"fork + npm overrides 别名"
 
-> 状态：**M0/M1 已实现（分支 `feat/fork-overrides`，未合并未发布）** · 日期：2026-09-10 · 作者：dsh-harmonyos 维护者
+> 状态：**M0/M1/M2 全部落地，v0.10.0 已发布；v0.10.1 修正 overrides → dependencies 别名** · 日期：2026-09-11 · 作者：dsh-harmonyos 维护者
 >
 > 进度快照：
-> - ✅ M0：`sync-forks` 管道（拉上游 tarball → git apply diff → 标记校验 → 改 manifest）+ `file:` overrides 别名验证（单包）
-> - ✅ M1：8 个 fork 的 `fork-patches/*.patch` 全部生成并验证（标记齐全、`git apply` 干净、8/8 overrides 解析到 fork）
-> - ✅ 工具：`scripts/sync-forks.mjs`（sync/--publish/--check/--materialize）、`scripts/cutover-overrides.mjs`（dry-run 默认）、`.github/workflows/forks.yml`
-> - ⏳ 待发布后（不在本分支做）：`npm run sync-forks -- --publish` 发 8 个 `@dsh-harmonyos/*` → `npm run cutover -- --apply` 切 npm: 别名 → 验证 → 发本体
+> - ✅ M0：`sync-forks` 管道（拉上游 tarball → git apply diff → 标记校验 → 改 manifest）+ `file:` 别名验证（单包）
+> - ✅ M1：8 个 fork 的 `fork-patches/*.patch` 全部生成并验证（标记齐全、`git apply` 干净、8/8 解析到 fork）
+> - ✅ 工具：`scripts/sync-forks.mjs`（sync/--publish/--check/--materialize）、`scripts/cutover-overrides.mjs`（别名同步）、`.github/workflows/forks.yml`
+> - ✅ v0.10.0：fork 发布 + 本体发布（当时用 `overrides` 接入）
+> - ✅ v0.10.1：**关键修正 —— `overrides` 只在命令根项目生效，`npm i -g` 安装 dsh-harmonyos 时包内 overrides 被 npm 忽略** → 改为 `dependencies` 里的 `npm:` 别名（任意安装场景生效）；启动器/patch/prune/anchors 定位抽为 `lib/locate.mjs`，支持平铺与嵌套布局
 > - 关键实现细节：`.forks-out/` 位于本仓库内，`git apply` 前必须 `git init`（否则解析到外层仓库根）；patch.mjs 各函数按自身标记幂等，fork 装进来后自动 no-op 退役
 > 目标读者：本仓库维护者。本文解决一个具体问题：**把 `lib/patch.mjs` 这套安装时锚点打补丁的脆机制，换成"源码本来就是对"的固定机制。**
 

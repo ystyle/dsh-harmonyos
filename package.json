@@ -1,6 +1,6 @@
 {
   "name": "dsh-harmonyos",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "DeepSeek Harness for HarmonyOS — 一条命令装好:JS-only 替代/裁剪 profile、鸿蒙文件系统补丁、compat loader(zstd/fs-ext/sharp shim)、自启脚本(优先原生 zstd 的 node)。装完跑 dsh-ohos 即可。",
   "keywords": [
     "dsh",
@@ -37,17 +37,7 @@
     "@deepseek-ai/dsh": "0.1.5-rc.2",
     "@deepseek-ai/dsh-host-directory-picker-auto": "^0.1.5-rc.2",
     "zstd-codec": "^0.1.5",
-    "@img/sharp-wasm32": "0.35.4"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ystyle/dsh-harmonyos.git"
-  },
-  "homepage": "https://github.com/ystyle/dsh-harmonyos#readme",
-  "bugs": {
-    "url": "https://github.com/ystyle/dsh-harmonyos/issues"
-  },
-  "overrides": {
+    "@img/sharp-wasm32": "0.35.4",
     "@deepseek-ai/dsh-session-persistence-jsonl": "npm:@dsh-harmonyos/dsh-session-persistence-jsonl@0.1.5-rc.2-harmony.1",
     "@deepseek-ai/dsh-attachment-local": "npm:@dsh-harmonyos/dsh-attachment-local@0.1.5-rc.2-harmony.1",
     "@deepseek-ai/dsh-fs-local": "npm:@dsh-harmonyos/dsh-fs-local@0.1.5-rc.2-harmony.1",
@@ -56,5 +46,13 @@
     "@deepseek-ai/dsh-tool-fs-search": "npm:@dsh-harmonyos/dsh-tool-fs-search@0.1.5-rc.2-harmony.1",
     "@deepseek-ai/dsh-credentials-local": "npm:@dsh-harmonyos/dsh-credentials-local@0.1.5-rc.2-harmony.1",
     "@deepseek-ai/dsh-sandbox-policy": "npm:@dsh-harmonyos/dsh-sandbox-policy@0.1.5-rc.2-harmony.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ystyle/dsh-harmonyos.git"
+  },
+  "homepage": "https://github.com/ystyle/dsh-harmonyos#readme",
+  "bugs": {
+    "url": "https://github.com/ystyle/dsh-harmonyos/issues"
   }
 }

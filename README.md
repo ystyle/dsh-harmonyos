@@ -4,6 +4,10 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.10.1** (2026-09-11) — 修复 fork 固化在 `npm i -g` 场景不生效 + 平铺布局支持
+  - **overrides → dependencies 别名**：npm 的 `overrides` 只在「命令根项目」生效，`npm i -g dsh-harmonyos` 时包内 overrides 被忽略 → fork 装不上、退回全量打补丁。改为 dependencies 里的 `npm:` 别名（`"@deepseek-ai/dsh-fs-local": "npm:@dsh-harmonyos/dsh-fs-local@…"`），任意安装场景都解析到 fork
+  - **定位逻辑抽为 `lib/locate.mjs`**（启动器/patch/prune/anchors 共用）：支持平铺（标准 `npm -g` 依赖平铺到 node_modules 容器）与嵌套两种布局，此前启动器只认包内 node_modules，平铺安装直接报「未找到 dsh」
+  - 实测：`npm install --prefix`（等价 `-g`）装新 tarball → 8 个 fork 顶层全就位、首启 patch 仅打 3 个残余补丁（permission/settingsCompat/loopbackAuth）、启动正常
 - **v0.10.0** (2026-09-11) — fork + overrides 固化（安装零补丁）
   - 官方 `@deepseek-ai/dsh` → **0.1.5-rc.2**（与 rc.1 仅依赖版本号升级，源码零差异，prebuilt 无需重做）
   - 8 个平台语义改动固化为 `@dsh-harmonyos/*` fork 包（`fork-patches/*.patch` diff 即真值），`package.json` overrides 经 `npm:` 别名接入 → 安装即正确，patch.mjs 对应条目因标记幂等自动退役，残余（回环免 token、settings 垫片等）仍兜底
@@ -104,7 +108,7 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 | 平台归一 | `compat/register.mjs` | `process.platform` 归一为 `linux`(module.register 引导)。鸿蒙 node 上报 `openharmony`, 会让按平台分发的包匹配失败 |
 | 启动器 | `bin/dsh-ohos.js` | 读 `NODE_OHOS`(强制); 首启自愈; 注入 `DSH_OHOS_FORCE_DANGER=1`(默认非沙箱); seed `permission.defaultPreset=danger-full-access`; **seed 内置预设 `presets/harmonyos-chat`(系统提示词开箱自带, 见下)**; 固定 `--expose-internals --experimental-sqlite --import compat/register.mjs`; 受限沙箱自动 `--jitless` |
 | compat loader | `compat/compat-loader.mjs` | 模块重定向: `node:zlib`/`node:module`(原生优先, 旧 node 回退 shim)、`fs-ext`(flock stub)、`koffi`(默认走真构建; `DSH_OHOS_KOFFI=shim` 退回 stub)、sharp 不拦截(wasm32 后端) |
-| 源码补丁 | `lib/patch.mjs` + `package.json` **overrides** | 8 个平台语义改动已 **fork 固化**(`@dsh-harmonyos/*` 经 overrides 替身, 安装即正确, 见 `fork-patches/`); patch.mjs 对 fork 条目因标记幂等自动 no-op, 残余(回环免 token、settings 垫片等)仍兜底。**npm 11 嵌套布局多实例全部覆盖** |
+| 源码补丁 | `lib/patch.mjs` + `package.json` **dependencies 别名** | 8 个平台语义改动已 **fork 固化**(`@deepseek-ai/<pkg>` 直接依赖 `npm:@dsh-harmonyos/<pkg>@…`, 任意安装场景生效, 见 `fork-patches/`); patch.mjs 对 fork 条目因标记幂等自动 no-op, 残余(permission/settingsCompat/loopbackAuth 等)仍兜底。**npm 11 嵌套布局多实例全部覆盖** |
 | 升级预检 | `lib/anchors.mjs` | **`npm run preflight [树路径]`**: fork 文件(自带标记)逐文件跳过, 残余(未 fork)锚点必须全部命中。官方升级后残余锚点漂移会在这里被拦下 |
 | profile 层 | `overlays/harmonyos.patch.yml` + `lib/prune.mjs` | overlay **启用** subprocess/sandbox/bash-sandbox/open-in-app/**tool-fs-search**(走 DSH_RG_PATH); prune 仅移除 pwsh-sandbox |
 | 预编译 | `prebuilt/` | koffi-3.2.1 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
@@ -129,8 +133,8 @@ npm run sync-forks -- --publish
 # 4. 本地全量验证(fork 树安装零补丁 + 残余锚点预检 + 端到端冒烟)
 npm ci --ignore-scripts && npm run preflight && npm test
 
-# 5. 发本体(cutover 已把 overrides 指向新 fork 版本)
-#    bump package.json 版本 → 打 v* tag(自动发布)
+# 5. 发本体(先 npm run cutover -- --apply 把 dependencies 别名同步到新 fork 版本,
+#    再 bump package.json 版本 → 打 v* tag 自动发布)
 ```
 
 四步全绿后再替换生产目录(同一父目录内两次 rename 原子切换, 便于回滚):

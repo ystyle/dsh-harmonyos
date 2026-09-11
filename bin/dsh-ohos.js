@@ -12,9 +12,13 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync, renameSync, copyFileSync, mkdirSync, rmSync, appendFileSync, chmodSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { locateDshDir } from '../lib/locate.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const NM = join(ROOT, 'node_modules');
+// dsh 定位: 支持嵌套(依赖装进包内 node_modules)与平铺(标准 npm -g 平铺到 node_modules 容器)布局,
+// 见 lib/locate.mjs。返回「dsh 依赖容器所在目录」(其下 node_modules 含 @deepseek-ai/*)。
+const DSH_DIR = locateDshDir(ROOT);
+const NM = join(DSH_DIR, 'node_modules');
 const MARKER = join(NM, '.dsh-harmonyos-ready');
 const MARK = 'dsh-harmonyos-ready';
 
