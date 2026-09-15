@@ -1,9 +1,9 @@
 diff --git a/lib/index.js b/lib/index.js
-index fec538f..69099cc 100644
+index d857a6f..b9a1047 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -4,7 +4,7 @@ import { AttachmentError, AttachmentId, AttachmentStore, ImageVariantId, request
- import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
+ import { dshCachePath, resolveDshHome } from "@deepseek-ai/dsh-home-paths";
  import { createHash, randomUUID } from "node:crypto";
  import { constants, createReadStream } from "node:fs";
 -import { chmod, link, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";

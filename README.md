@@ -4,6 +4,11 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.11.0** (2026-09-15) — 适配官方 dsh **0.1.6-alpha.1**（大版本更新）
+  - 官方 `@deepseek-ai/dsh` → **0.1.6-alpha.1**；8 个 fork 包 7 个升到 `0.1.6-alpha.1-harmony.1`（`node-addon-system` 上游仍 0.1.2 不变）；`prebuilt/koffi-3.3.0-linux-arm64-musl.node`（koffi 3.2.1→3.3.0，源码编译 + AGC 签名）
+  - 补丁面：**27 处残余锚点零改动**（官方在关键路径与 rc.2 一致），仅 `dsh-tool-fs-search` 的 `resolveRgPath` 重构（`return …rgPath` → `const dependency = …`），fork patch 与 anchors 锚点同步更新；`dsh-attachment-local` fork patch 按 0.1.6 上游微调（import 无 `copyFile`、`unlink` 无 `.catch`）重新生成
+  - 上游移除 `dsh-code-runtime`/`dsh-workflow-worker-thread`（Node PTC 独立进程化 → `dsh-ptc-runtime`/`dsh-workflow-ptc`，纯 JS 无原生风险）；新增 terminal/unarchive-sessions/image-offload 等客户端插件均进装配清单
+  - 验证：`npm ci` 全新安装 → 8 fork 全解析 + patch 全绿 + preflight 27/27 + smoke PASS（token 303+cookie → / 200）；真实 Chrome（CDP）→ **59 个客户端 entry 全部 200、`client-resources` 在清单、pending:false、聊天框正常**（0.1.6 装配改为逐 entry 独立 URL，`restoreForkNames` 依旧关键）
 - **v0.10.5** (2026-09-11) — **修复 node-addon-system/flock 嵌套实例漏补丁（会话 resume 失败根因）**
   - 根因：`patchNodeAddonFlock()` 此前只会补 `node_modules/@deepseek-ai/node-addon-system` 顶层一份，但 npm 嵌套布局下 `dsh-session-persistence-jsonl`、`dsh-sandbox-local` 各自还带一份 `@deepseek-ai/node-addon-system`（上游 0.1.2）→ 运行时解析到未补丁的嵌套副本 → 打开/恢复历史会话报 `Cannot find module '@deepseek-ai/node-addon-system-linux-arm64/package.json'`（`gateway/internal: resume failed`）
   - 修复：新增 `nodeAddonFlockFiles()` 按包名递归定位**全部** `lib/flock.js` 实例，`patchEvery` 逐实例打补丁；校验段同步改为逐实例校验（漏打任意一份即报错）
@@ -57,7 +62,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
   # ~/.zshrc
   export NODE_OHOS="$(brew --prefix)/opt/node/bin/node"
   ```
-- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.5-rc.1)。
+- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.6-alpha.1)。
 
 ## 安装与启动
 
@@ -126,7 +131,7 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 | 源码补丁 | `lib/patch.mjs` + `package.json` **dependencies 别名** | 8 个平台语义改动已 **fork 固化**(`@deepseek-ai/<pkg>` 直接依赖 `npm:@dsh-harmonyos/<pkg>@…`, 任意安装场景生效, 见 `fork-patches/`); patch.mjs 对 fork 条目因标记幂等自动 no-op, 残余(permission/settingsCompat/loopbackAuth 等)仍兜底。**npm 11 嵌套布局多实例全部覆盖** |
 | 升级预检 | `lib/anchors.mjs` | **`npm run preflight [树路径]`**: fork 文件(自带标记)逐文件跳过, 残余(未 fork)锚点必须全部命中。官方升级后残余锚点漂移会在这里被拦下 |
 | profile 层 | `overlays/harmonyos.patch.yml` + `lib/prune.mjs` | overlay **启用** subprocess/sandbox/bash-sandbox/open-in-app/**tool-fs-search**(走 DSH_RG_PATH); prune 仅移除 pwsh-sandbox |
-| 预编译 | `prebuilt/` | koffi-3.2.1 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
+| 预编译 | `prebuilt/` | koffi-3.3.0 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
 
 补丁锚点为精确代码片段, 失配即**报错拒绝**(绝不静默打错)。
 
@@ -207,7 +212,7 @@ npm install && npm link && dsh-ohos
 
 - 无 OS 沙箱: 默认 danger-full-access 非沙箱执行(个人设备语义, 同 Claude Code/pi 本机行为)
 - 预编译 rg 的 exec 在受限 pi 沙箱内可能被白名单拒(本沙箱只认受信 inode), 真机无此限制; 可用 `DSH_RG_PATH` 指向本机受信 rg
-- 预编译覆盖 koffi 3.2.1 / node-pty 1.2.0-beta.15 / rg(musl ripgrep); 升级需配套新 prebuilt 或走源码编译回退
+- 预编译覆盖 koffi 3.3.0 / node-pty 1.2.0-beta.15 / rg(musl ripgrep); 升级需配套新 prebuilt 或走源码编译回退
 - 图片编解码走 sharp **wasm32**(比原生慢, 但功能完整: decode + resize + webp/jpeg 编码全阶梯实测通过)。
   曾尝试原生 `@img/sharp-linuxmusl-arm64`: AGC 签名后能过沙箱 dlopen 校验, 但该 musl 预编译绑定需要
   `libstdc++.so.6`, 而鸿蒙 node 是 musl 构建、系统内无此库 → 原生后端不可用, 维持 wasm32。
