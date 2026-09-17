@@ -4,6 +4,13 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.12.0** (2026-09-17) — 适配官方 dsh **0.1.6-alpha.2**
+  - 官方 `@deepseek-ai/dsh` → **0.1.6-alpha.2**；7 个 fork 包升到 `0.1.6-alpha.2-harmony.1`（`node-addon-system` 上游仍 0.1.2 不变）；原生依赖 koffi 3.3.0 / node-pty / sharp-wasm / ripgrep **零变化** → prebuilt 全部复用
+  - 补丁面：7/8 fork patch 在 alpha.2 基座原样通过；仅 `dsh-attachment-local` 第一 hunk 上下文适配——上游把 `import sharp` 改为**懒加载**（新依赖 `@deepseek-ai/dsh-lazy-require`，sharp wasm 不再启动时加载，对我们有利）；27 处残余锚点全命中（permission-presets/settings/client-connection 零漂移）
+  - **新增补丁 `node-addon-require-builtin` JS 回退**：alpha.2 起插件依赖默认「运行时解析」（resolutionMode 默认 runtime），启动必经 `internalModules()` 加载该包的原生 binding；鸿蒙（openharmony-arm64，归一后 linux-arm64-musl）无平台二进制 → 启动即崩。该包是「无白名单」变体（requireBuiltin 原样转发、isAllowedInternalId 恒 true），等价语义 = 直接 require；启动器已带 `--expose-internals`（worker 继承 execArgv 同样可用），故原生加载失败时回退 JS 直读内部模块（新增 patch.mjs 条目 + anchors 预检锚点）
+  - 上游变化：CLI 支持 `dsh <profile>` 位置参数（`--profile` 兼容）；`cordis-plugin-hmr` → 官方新包 `dsh-hmr`；新增 `dsh-plugin-manager`/`dsh-client-ui-cordis`（插件管理页）；**动态 Cordis 工具被移除**（`cordis_define/cordis_run/cordis_stop/cordis_undefine/cordis_inspect_self`，只留只读 inspect_list/query）——插件能力改走 Plugin Manager，属上游产品决策
+  - **注意**：alpha.2 的 typert-loader 强制 codec `create()` 工厂格式，旧版第三方插件会启动报错。用户 profile 里的 `dsh-cost-meter` 需 **≥ 1.7.28**（已在本机更新 1.7.22→1.7.28）
+  - 验证：`npm ci` 全新安装 → 8 fork 全解析 + patch 全绿（含新 requireBuiltin 条目）+ smoke PASS（全新 home 与真实 home 双测）；测试实例 58 个客户端 entry 全部 200、`client-resources` 在装配清单
 - **v0.11.0** (2026-09-15) — 适配官方 dsh **0.1.6-alpha.1**（大版本更新）
   - 官方 `@deepseek-ai/dsh` → **0.1.6-alpha.1**；8 个 fork 包 7 个升到 `0.1.6-alpha.1-harmony.1`（`node-addon-system` 上游仍 0.1.2 不变）；`prebuilt/koffi-3.3.0-linux-arm64-musl.node`（koffi 3.2.1→3.3.0，源码编译 + AGC 签名）
   - 补丁面：**27 处残余锚点零改动**（官方在关键路径与 rc.2 一致），仅 `dsh-tool-fs-search` 的 `resolveRgPath` 重构（`return …rgPath` → `const dependency = …`），fork patch 与 anchors 锚点同步更新；`dsh-attachment-local` fork patch 按 0.1.6 上游微调（import 无 `copyFile`、`unlink` 无 `.catch`）重新生成
@@ -62,7 +69,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
   # ~/.zshrc
   export NODE_OHOS="$(brew --prefix)/opt/node/bin/node"
   ```
-- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.6-alpha.1)。
+- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.6-alpha.2)。
 
 ## 安装与启动
 

@@ -8,7 +8,7 @@ index d857a6f..b9a1047 100644
  import { constants, createReadStream } from "node:fs";
 -import { chmod, link, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 +import { chmod, copyFile, link, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
- import sharp from "sharp";
+ import { createLazyRequire } from "@deepseek-ai/dsh-lazy-require";
  //#region lib/types/compression-limiter.js
  /** Instance-owned concurrency bound for native image transformations. */
 @@ -350,7 +350,16 @@ async function syncDirectory(path) {
