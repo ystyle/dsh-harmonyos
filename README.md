@@ -4,6 +4,11 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.12.1** (2026-09-19) — **修复内置预设 harmonyos-chat 挂载失败**（[issue #5](https://github.com/ystyle/dsh-harmonyos/issues/5)）
+  - 根因：内置预设仍引用上游 0.1.6 已移除的 `@deepseek-ai/dsh-workflow-worker-thread`（v0.11.0 已改为 `dsh-workflow-ptc`，但 v0.12.0 模板未同步）→ 新会话挂载预设失败，前端仅 console.warn，表现为「新建会话按钮点了没反应」
+  - 同步官方 0.1.6-alpha.2 standard 预设：`workflow-worker-thread` → `workflow-ptc`；`tool-ralph` 补 `disabled: true`；新增 `tool-plugin-manager` 行（disabled）
+  - 已修复用户侧 `$DSH_HOME/.agent-presets/` 下全部预设（harmonyos-chat + 6 个 harmony-* 旧预设），并对所有预设逐行 `require.resolve` 全量校验通过
+  - **给已安装用户的提示**：升级后如旧预设仍报错，删掉 `~/.dsh/.agent-presets/<预设>/agent.cordis.yml` 让启动器重新 seed，或手动把 `dsh-workflow-worker-thread` 改成 `dsh-workflow-ptc`
 - **v0.12.0** (2026-09-17) — 适配官方 dsh **0.1.6-alpha.2**
   - 官方 `@deepseek-ai/dsh` → **0.1.6-alpha.2**；7 个 fork 包升到 `0.1.6-alpha.2-harmony.1`（`node-addon-system` 上游仍 0.1.2 不变）；原生依赖 koffi 3.3.0 / node-pty / sharp-wasm / ripgrep **零变化** → prebuilt 全部复用
   - 补丁面：7/8 fork patch 在 alpha.2 基座原样通过；仅 `dsh-attachment-local` 第一 hunk 上下文适配——上游把 `import sharp` 改为**懒加载**（新依赖 `@deepseek-ai/dsh-lazy-require`，sharp wasm 不再启动时加载，对我们有利）；27 处残余锚点全命中（permission-presets/settings/client-connection 零漂移）
