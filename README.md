@@ -4,6 +4,12 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.13.1** (2026-09-25) — **修复 koffi 版本漂移导致回退源码编译**
+  - 现象：升级到 0.13.0 后首次启动打印「编译 koffi(源码, 需 clang/cmake)… Failed to load prebuilt binary, rebuilding from source」，不再用仓库自带的预编译
+  - 根因：上游依赖写的是 `koffi ^3.1.0`（不是精确钉版），0.13.0 重新生成 `package-lock.json` 时 npm 解析到了最新的 **3.3.1**，而仓库只带 `prebuilt/koffi-3.3.0-…node` → 版本对不上 → 按设计回退源码编译（本机有 clang/cmake 所以能过，但慢、且没有 AGC 签名保障）
+  - 修复：① 随包新增 **`prebuilt/koffi-3.3.1-linux-arm64-musl.node`**（本机 cnoke 编译 + codesign 签名，与 3.3.0 同一条产出链）；② 在 `dependencies` 里**精确钉住 `"koffi": "3.3.1"`**，与 `@img/sharp-wasm32`/`zstd-codec` 同一手法，杜绝再次静默漂移；③ 启动器在缺少配套预编译时改为明确报出「本机 koffi 版本 + 仓库自带哪些版本 + 版本漂移通常是没钉住 koffi」
+  - 验证（全新全局嵌套安装）：启动输出 `使用预编译 koffi(3.3.1, AGC 签名)`、**编译输出 0 行**、三个 triplet 铺位齐全；smoke PASS、preset-check PASS、anchors PASS
+  - 提示：若你已在 0.13.0 上被源码编译过，升级 0.13.1 即可；已编译产物留在 `node_modules/koffi/build/` 里不会被自动清理，可忽略（预编译优先）
 - **v0.13.0** (2026-09-25) — 适配官方 dsh **0.1.7-rc.2**（跨 4 个 prerelease 的大版本）
   - 官方 `@deepseek-ai/dsh` → **0.1.7-rc.2**；7 个 fork 包升到 `0.1.7-rc.2-harmony.1`（`node-addon-system` 上游仍 0.1.2 不变）；原生依赖 koffi 3.3.0 / node-pty 1.2.0-beta.15 / sharp-wasm / ripgrep 1.18.0 **零变化** → prebuilt 全部复用
   - 补丁面：**8 个 fork patch 有 7 个在 rc.2 基座原样通过**；`dsh-session-persistence-jsonl` 因上游 Session 日志升 V4 改了 import 行导致上下文漂移 → 按新基座重新生成（三处改动逻辑零变化，已实测干净应用）；残余锚点仅 `dsh-client-connection` 一处随上游适配（token 换发 303 的 `location` 由 `"/"` 改为 `"./"`）

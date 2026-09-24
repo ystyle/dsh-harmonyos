@@ -173,7 +173,9 @@ function ensureKoffi(nodeBin) {
           writeFileSync(cnoke, c);
         }
       }
-      console.error('dsh-ohos: 编译 koffi(源码, 需 clang/cmake)…');
+      console.error('dsh-ohos: 本机 koffi ' + ver + ' 没有配套预编译(缺 prebuilt/koffi-' + ver + '-linux-arm64-musl.node)');
+      console.error('dsh-ohos:   仓库自带: ' + (readdirSync(join(ROOT, 'prebuilt')).filter((f) => f.startsWith('koffi-')).join(', ') || '(无)'));
+      console.error('dsh-ohos:   版本漂移通常是 package.json 没钉住 koffi; 现按源码编译兜底(需 clang/cmake, 产物本地签名)…');
       const r = spawnSync(nodeBin, ['cnoke.cjs', '-P', '.', '-D', 'src/koffi', '--prebuild', '--release'], { cwd: dir, stdio: 'inherit' });
       if (r.status !== 0 || !existsSync(outNode)) { console.error('dsh-ohos: koffi 编译失败(exit=' + r.status + ')'); process.exit(1); }
     }
