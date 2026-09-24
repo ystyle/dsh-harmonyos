@@ -4,6 +4,16 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
+- **v0.13.0** (2026-09-25) — 适配官方 dsh **0.1.7-rc.2**（跨 4 个 prerelease 的大版本）
+  - 官方 `@deepseek-ai/dsh` → **0.1.7-rc.2**；7 个 fork 包升到 `0.1.7-rc.2-harmony.1`（`node-addon-system` 上游仍 0.1.2 不变）；原生依赖 koffi 3.3.0 / node-pty 1.2.0-beta.15 / sharp-wasm / ripgrep 1.18.0 **零变化** → prebuilt 全部复用
+  - 补丁面：**8 个 fork patch 有 7 个在 rc.2 基座原样通过**；`dsh-session-persistence-jsonl` 因上游 Session 日志升 V4 改了 import 行导致上下文漂移 → 按新基座重新生成（三处改动逻辑零变化，已实测干净应用）；残余锚点仅 `dsh-client-connection` 一处随上游适配（token 换发 303 的 `location` 由 `"/"` 改为 `"./"`）
+  - **C 类补丁按计划删除**：`dsh-settings` 在 0.1.7 是**全新包**（`SettingsProvider` → `SettingsForms`），旧版兼容垫片（`settingsNamespace`/`installSettingsSection`）已无宿主类可委托 → 删除 `patchSettingsCompat` 及其锚点（已核对本机无插件引用旧 API）
+  - ⚠️ **内置预设机制被上游重写**：`$DSH_HOME/.agent-presets/<id>/` 目录**已无人读取**（官方原文 "Nothing reads that directory any more"），预设改为 `@deepseek-ai/dsh-agent-preset` **声明行**、由 bundle patch 承载。本发行版相应对策：
+    - 新增独立 bundle 包 **`@dsh-harmonyos/preset-harmonyos-chat`**（`dsh.bundle.patch` → `cordis.patch.yml`），随 `dsh-harmonyos` 依赖安装到 dsh 安装目录；同时把 `agent-preset-registry` 的 `default` 覆盖为 `harmonyos-chat`
+    - 启动器改为把 bundle 名写进 profile 的 `dsh.profile.bundles`（bundle 解析优先取 dsh 安装目录，故无需装进 profile、也不动用户 patch 层）；全新 home 下按官方 `initProfile` 模板预建 profile 清单，保证**首个会话**就带上内置提示词
+    - 新增 **`npm run preset-check`**：发布前逐行核对预设里每个插件都能从 dsh 树解析，并与官方 `standard` 预设的插件 id 清单比对漂移 —— 把 issue #5 那类「引用上游已移除的包 → 新建会话点了没反应」挡在发布前
+  - 上游其他变化：Session 日志升 V4（带 v3→v4 迁移器）；内置预设包重构（`dsh-agent-presets` → `dsh-agent-preset` + `dsh-agent-preset-registry` + `dsh-web-app/presets/*.patch.yml`）；依赖由 `^0.1.x` 改为**精确钉版**；`dsh-llm-deepseek` 拆为 account/api-key 两包；新增 `dsh-skill-office`/`dsh-experimental-auto-review`/`dsh-tool-workspace-dependencies`；侧边栏终端、MCP 资源、SSH 远端工作区、插件管理页运行时卸载等
+  - **给已安装用户的提示**：旧 `~/.dsh/.agent-presets/` 目录不再被读取（保留无害，可自行删除）；若自建过 harmony-* 预设，需按官方「legacy preset 迁移」改成 bundle/声明行后才可见
 - **v0.12.1** (2026-09-19) — **修复内置预设 harmonyos-chat 挂载失败**（[issue #5](https://github.com/ystyle/dsh-harmonyos/issues/5)）
   - 根因：内置预设仍引用上游 0.1.6 已移除的 `@deepseek-ai/dsh-workflow-worker-thread`（v0.11.0 已改为 `dsh-workflow-ptc`，但 v0.12.0 模板未同步）→ 新会话挂载预设失败，前端仅 console.warn，表现为「新建会话按钮点了没反应」
   - 同步官方 0.1.6-alpha.2 standard 预设：`workflow-worker-thread` → `workflow-ptc`；`tool-ralph` 补 `disabled: true`；新增 `tool-plugin-manager` 行（disabled）
@@ -74,7 +84,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
   # ~/.zshrc
   export NODE_OHOS="$(brew --prefix)/opt/node/bin/node"
   ```
-- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.6-alpha.2)。
+- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.7-rc.2)。
 
 ## 安装与启动
 
@@ -105,23 +115,28 @@ npm i -g dsh-harmonyos@latest --ignore-scripts
 | `DSH_OHOS_FORCE_DANGER=1` | 强制非沙箱执行(OHOS 无 OS 沙箱后端) | 默认注入 |
 | `DSH_PERMISSION_MODE=danger-full-access` | 让 permission 服务推出的默认 preset 落到 `danger-full-access`(0.1.5-rc.1 必需, 否则 boot 期直接抛错) | 默认注入 |
 | `DSH_RG_PATH` | 指定 ripgrep 路径(glob/grep 用) | prebuilt/rg(AGC 签名) |
-| `DSH_OHOS_PRESET` | 内置预设开关/改名: `off` 关闭; 其它合法 id 则用该 id 落地 | `harmonyos-chat` |
+| `DSH_OHOS_PRESET` | 内置预设开关/换包: `off` 关闭; 其它合法包名则注册该 bundle | `@dsh-harmonyos/preset-harmonyos-chat` |
 
 ### 内置系统提示词（harmonyos-chat 预设）
 
-仓库 `presets/harmonyos-chat/` 携带一个**内置 agent 预设**（基于官方 `standard`
+`presets/harmonyos-chat/` 是一个**内置 agent 预设 bundle**（基于官方 `standard`
 完整编码 Agent），其 persona 已把鸿蒙运行环境说明写进系统提示词：
 鸿蒙内核、`target=linux-aarch64-ohos`、与 Linux ABI 兼容但**不是** Linux、
 `/tmp` 只读、临时文件写 `$TMPDIR`（默认 `~/.cache`）。
 
-- 启动器首次运行时把它 seed 到 `~/.dsh/.agent-presets/harmonyos-chat/`，
-  并在 `~/.dsh/settings.yaml` 尚无 `agent-presets:` 时把 **默认预设** 指到它
-  —— 之后新建的会话「一开始就内置」这套系统提示词。
-- 想改提示词：直接编辑 `~/.dsh/.agent-presets/harmonyos-chat/agent.cordis.yml`
-  的 `persona.config.prefix`（用户编辑不会被启动器覆盖）；改回仓库模板则删掉
-  落地目录即可重新 seed。
-- 不改默认：给 `settings.yaml` 显式写 `agent-presets: {default: standard}`。
-- 关闭/改名：`DSH_OHOS_PRESET=off` 或 `DSH_OHOS_PRESET=<其它id>`。
+0.1.7-rc.2 起官方把预设机制从「`$DSH_HOME/.agent-presets/<id>/` 目录」改成
+「bundle 里的 `@deepseek-ai/dsh-agent-preset` 声明行」（旧目录已无人读取），因此：
+
+- 预设随独立包 `@dsh-harmonyos/preset-harmonyos-chat` 分发（`dsh-harmonyos` 的依赖），
+  启动器把它的包名写进 profile 的 `dsh.profile.bundles` —— 之后新建的会话
+  「一开始就内置」这套系统提示词；全新 home 下 profile 清单会被预建，首个会话即生效。
+- 想改提示词：编辑 `~/.dsh/profiles/<profile>/cordis.patch.yml`，按 id 覆盖
+  `preset-harmonyos-chat` 的 `config.plugins`（用户 patch 层在 bundle 之后应用，
+  末次写入生效）；或直接改仓库 `presets/harmonyos-chat/cordis.patch.yml` 后重装本发行版。
+- 不改默认：在 profile 的 `cordis.patch.yml` 里覆盖 `agent-preset-registry` 的
+  `config.default`（Web 界面的预设选择也会写进该层，优先级更高）。
+- 关闭/换包：`DSH_OHOS_PRESET=off` 或 `DSH_OHOS_PRESET=<其它bundle包名>`。
+- 发布前自查：`npm run preset-check`（核对每个插件可解析 + 与官方 standard 预设比对漂移）。
 
 受限沙箱(如 pi agent 环境)内 prebuilt 二进制可能被 exec 白名单拦截, 用本机受信 rg:
 ```sh
@@ -130,7 +145,7 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 真机(非受限沙箱)默认即可, 无需设置。
 
 > 首次启动自愈: patch(源码补丁) + prune + prebuilt 铺位(koffi/node-pty, AGC 签名) +
-> sharp wasm32 后端确认 + seed 权限默认(danger-full-access) + seed 内置预设(harmonyos-chat)。
+> sharp wasm32 后端确认 + seed 权限默认(danger-full-access) + 注册内置预设 bundle(harmonyos-chat)。
 > 升级/重装后 marker 版本不一致会自动重跑。
 
 ## 适配机制
@@ -138,11 +153,12 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 | 层 | 机制 | 说明 |
 |---|---|---|
 | 平台归一 | `compat/register.mjs` | `process.platform` 归一为 `linux`(module.register 引导)。鸿蒙 node 上报 `openharmony`, 会让按平台分发的包匹配失败 |
-| 启动器 | `bin/dsh-ohos.js` | 读 `NODE_OHOS`(强制); 首启自愈; 注入 `DSH_OHOS_FORCE_DANGER=1`(默认非沙箱); seed `permission.defaultPreset=danger-full-access`; **seed 内置预设 `presets/harmonyos-chat`(系统提示词开箱自带, 见下)**; 固定 `--expose-internals --experimental-sqlite --import compat/register.mjs`; 受限沙箱自动 `--jitless` |
+| 启动器 | `bin/dsh-ohos.js` | 读 `NODE_OHOS`(强制); 首启自愈; 注入 `DSH_OHOS_FORCE_DANGER=1`(默认非沙箱); seed `permission.defaultPreset=danger-full-access`; **注册内置预设 bundle `@dsh-harmonyos/preset-harmonyos-chat`(写入 profile 的 `dsh.profile.bundles`, 系统提示词开箱自带, 见下)**; 固定 `--expose-internals --experimental-sqlite --import compat/register.mjs`; 受限沙箱自动 `--jitless` |
 | compat loader | `compat/compat-loader.mjs` | 模块重定向: `node:zlib`/`node:module`(原生优先, 旧 node 回退 shim)、`fs-ext`(flock stub)、`koffi`(默认走真构建; `DSH_OHOS_KOFFI=shim` 退回 stub)、sharp 不拦截(wasm32 后端) |
-| 源码补丁 | `lib/patch.mjs` + `package.json` **dependencies 别名** | 8 个平台语义改动已 **fork 固化**(`@deepseek-ai/<pkg>` 直接依赖 `npm:@dsh-harmonyos/<pkg>@…`, 任意安装场景生效, 见 `fork-patches/`); patch.mjs 对 fork 条目因标记幂等自动 no-op, 残余(permission/settingsCompat/loopbackAuth 等)仍兜底。**npm 11 嵌套布局多实例全部覆盖** |
-| 升级预检 | `lib/anchors.mjs` | **`npm run preflight [树路径]`**: fork 文件(自带标记)逐文件跳过, 残余(未 fork)锚点必须全部命中。官方升级后残余锚点漂移会在这里被拦下 |
+| 源码补丁 | `lib/patch.mjs` + `package.json` **dependencies 别名** | 8 个平台语义改动已 **fork 固化**(`@deepseek-ai/<pkg>` 直接依赖 `npm:@dsh-harmonyos/<pkg>@…`, 任意安装场景生效, 见 `fork-patches/`); patch.mjs 对 fork 条目因标记幂等自动 no-op, 残余(permission/loopbackAuth/fs-search/requireBuiltin 等)仍兜底。**npm 11 嵌套布局多实例全部覆盖** |
+| 升级预检 | `lib/anchors.mjs` + `scripts/preset-check.mjs` | **`npm run preflight [树路径]`**: fork 文件(自带标记)逐文件跳过, 残余(未 fork)锚点必须全部命中。**`npm run preset-check`**: 内置预设逐行 `require.resolve` + 与官方 `standard` 预设比对漂移。两者都在 CI 门禁里 |
 | profile 层 | `overlays/harmonyos.patch.yml` + `lib/prune.mjs` | overlay **启用** subprocess/sandbox/bash-sandbox/open-in-app/**tool-fs-search**(走 DSH_RG_PATH); prune 仅移除 pwsh-sandbox |
+| 旧预设迁移 | `scripts/migrate-presets.mjs` | 0.1.7 起 `.agent-presets/` 目录不再被读取 → 把旧目录转成 `@deepseek-ai/dsh-agent-preset` 声明行写进 profile patch(自动把失效的 persona `text` 改名为 `prefix`); 默认预演, `--write` 才落盘 |
 | 预编译 | `prebuilt/` | koffi-3.3.0 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
 
 补丁锚点为精确代码片段, 失配即**报错拒绝**(绝不静默打错)。

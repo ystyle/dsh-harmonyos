@@ -33,14 +33,20 @@ jobs:
           cache: npm
 
       # tag 与 package.json 版本必须一致, 防错发(如 tag v0.8.3 但 package.json 还是 0.8.2)。
+      # 内置预设 bundle 与主包同版本发布(内容不变也一起升版), 因此两者必须一致。
       - name: 校验 tag 与版本一致
         run: |
           V=$(node -p "require('./package.json').version")
+          B=$(node -p "require('./presets/harmonyos-chat/package.json').version")
           if [ "refs/tags/v${V}" != "${GITHUB_REF}" ]; then
             echo "✗ tag ${GITHUB_REF} 与 package.json 版本 v${V} 不一致, 中止发布"
             exit 1
           fi
-          echo "发布版本: v${V}"
+          if [ "${B}" != "${V}" ]; then
+            echo "✗ 内置预设 bundle 版本 ${B} 与主包 ${V} 不一致(两者需同步升版)"
+            exit 1
+          fi
+          echo "发布版本: v${V}(内置预设 bundle 同步)"
 
       - name: 安装依赖
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -48,12 +54,28 @@ jobs:
       - name: 补丁锚点预检
         run: npm run preflight
 
+      - name: 内置预设校验
+        run: npm run preset-check
+
       - name: 语法检查
         run: |
           for f in bin/dsh-ohos.js lib/index.js lib/patch.mjs lib/prune.mjs lib/anchors.mjs compat/*.mjs scripts/*.mjs; do
             node --check "$f" || { echo "✗ 语法错误: $f"; exit 1; }
           done
           echo "syntax OK"
+
+      # 内置预设 bundle 必须先于主包发布: 主包的 dependencies 里钉了它, 装主包时要能解析到。
+      - name: 发布内置预设 bundle
+        run: |
+          V=$(node -p "require('./presets/harmonyos-chat/package.json').version")
+          if npm view "@dsh-harmonyos/preset-harmonyos-chat@${V}" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "bundle ${V} 已存在, 跳过"
+          else
+            cd presets/harmonyos-chat
+            npm publish --access public --registry=https://registry.npmjs.org
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # registry-url 已在 setup-node 配好, NODE_AUTH_TOKEN 自动写入 .npmrc;
       # 显式 --registry 防本仓库 .npmrc 的 npmmirror 干扰。

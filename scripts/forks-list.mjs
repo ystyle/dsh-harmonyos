@@ -10,7 +10,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-session-persistence-jsonl',
     upstream: '@deepseek-ai/dsh-session-persistence-jsonl',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-session-persistence-jsonl.patch',
     markers: [
@@ -21,7 +21,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-attachment-local',
     upstream: '@deepseek-ai/dsh-attachment-local',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-attachment-local.patch',
     markers: [
@@ -32,7 +32,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-fs-local',
     upstream: '@deepseek-ai/dsh-fs-local',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-fs-local.patch',
     markers: ['HarmonyOS /storage mounts reject hard links'],
@@ -48,7 +48,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-client-resources',
     upstream: '@deepseek-ai/dsh-client-resources',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-client-resources.patch',
     markers: ['HarmonyOS patch: protocolOf 手动回退'],
@@ -56,7 +56,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-tool-fs-search',
     upstream: '@deepseek-ai/dsh-tool-fs-search',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-tool-fs-search.patch',
     markers: ['DSH_RG_PATH'],
@@ -64,7 +64,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-credentials-local',
     upstream: '@deepseek-ai/dsh-credentials-local',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-credentials-local.patch',
     markers: ['HarmonyOS patch: 文件系统强制组位'],
@@ -72,7 +72,7 @@ export const FORKS = [
   {
     fork: '@dsh-harmonyos/dsh-sandbox-policy',
     upstream: '@deepseek-ai/dsh-sandbox-policy',
-    version: '0.1.6-alpha.2',
+    version: '0.1.7-rc.2',
     harmony: 1,
     patch: 'dsh-sandbox-policy.patch',
     markers: ['DSH_OHOS_FORCE_DANGER'],

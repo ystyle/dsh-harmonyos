@@ -328,50 +328,102 @@ function seedPermissionDefault() {
 }
 seedPermissionDefault();
 
-// 内置预设 seed: 把仓库 presets/<id>/ 预置到 $DSH_HOME/.agent-presets/<id>/
-// 「系统提示词在一开始就内置」的实现 —— 会话的 system prompt 由它挂载的 agent
-// preset 组合出来, 让新会话默认挂上内置预设即等于提示词开箱自带。
-//   - 只在「缺失」或「模板比已落地文件新」时同步, 绝不覆盖用户后续编辑
-//     (用户自己改过 → 落地文件 mtime 更新 → 跳过)
-//   - settings.yaml 尚未出现 agent-presets 命名空间时补 default 指到该预设;
-//     用户一旦自己设置过(默认预设或改回别的), 尊重其选择, 不再写入
-//   - DSH_OHOS_PRESET=off 关闭; =其它合法 id 时改用该 id 落地(便于自己改名)
-function seedBuiltinPreset() {
-  const presetId = 'harmonyos-chat';
+// 内置预设(0.1.7-rc.2 起的新机制)：「系统提示词在一开始就内置」的实现。
+//
+// 0.1.7 起 agent 预设不再是 `$DSH_HOME/.agent-presets/<id>/` 目录(官方原文: Nothing reads
+// that directory any more)，而是普通 `@deepseek-ai/dsh-agent-preset` 声明行，由 bundle
+// patch 承载。本发行版把预设做成独立 bundle 包(随 dsh-harmonyos 依赖安装，落在 dsh 安装
+// 目录的 node_modules/@dsh-harmonyos/preset-harmonyos-chat)，启动器只需把包名写进
+// profile 的 `dsh.profile.bundles` —— bundle 解析优先取 installAnchor(dsh 安装目录)，
+// 所以无需装进 profile、也不动用户的 patch 层。
+//   - 追加在末尾: web-app bundle 先插入 agent-preset-registry，本 bundle 后应用 →
+//     default=harmonyos-chat 生效(末次写入生效)；用户在 Web 界面改过默认后，用户 patch 层
+//     (profiles/<name>/cordis.patch.yml) 仍在其后应用，尊重用户选择
+//   - profile 尚未初始化(全新 home)时按官方 initProfile 的模板预建清单: 官方只在
+//     package.json 缺失时才写，因此我们的 bundles 列表会被保留；否则「默认预设」要等
+//     第二次启动才生效，与「开箱即带系统提示词」的承诺不符
+//   - DSH_OHOS_PRESET=off 关闭；=其它合法包名时改用该 bundle(便于换成自定义预设)
+const PRESET_BUNDLE = '@dsh-harmonyos/preset-harmonyos-chat';
+// 与官方 dsh-app-boot 的 PROFILE_TEMPLATES / DEFAULT_PROFILE_BUNDLES 同步(仅用于预建)。
+const PROFILE_TEMPLATE_BUNDLES = {
+  acp: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app'],
+  web: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+  headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
+  sdk: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app'],
+  'sdk-minimal': ['@deepseek-ai/dsh-sdk-minimal'],
+};
+// 与官方 initProfile 写出的最小 profile 一致，保证预建目录能被官方原样接受。
+const PROFILE_PATCH_TEMPLATE = '# Your patch layer for this dsh profile, applied after every bundle layer:\n'
+  + '# a top-level YAML array of loader patch entries (id-targeted config\n'
+  + '# overrides, disables, and insert lists; `!!js` expressions allowed).\n'
+  + '[]\n';
+const PROFILE_PNPM_WORKSPACE = 'packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n';
+
+/** 从启动参数里取 profile 名(默认与 launcher 默认参数一致: web)。 */
+function detectProfileName(argv) {
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--profile' || argv[i] === '-p') return argv[i + 1] || 'web';
+    if (!argv[i].startsWith('-')) return argv[i]; // 官方新 CLI: dsh <profile> 位置参数
+  }
+  return 'web';
+}
+
+function ensurePresetBundle() {
   const want = (process.env.DSH_OHOS_PRESET || '').trim();
   if (want === 'off' || want === '0' || want === 'false') return;
-  // 幂等 id 兜底: 非法字符/撞 shipped 预设名 → 退回模板默认 id
-  const shipped = ['standard', 'ptc', 'minimal', 'cordis'];
-  const id = /^[a-z0-9][a-z0-9-]*$/.test(want) && !shipped.includes(want) ? want : presetId;
+  const bundle = /^@?[a-z0-9][a-z0-9._/-]*$/i.test(want) ? want : PRESET_BUNDLE;
+  const profile = detectProfileName(args);
   const home = process.env.DSH_HOME || join(process.env.HOME || '', '.dsh');
-  const src = join(ROOT, 'presets', presetId);
-  if (!existsSync(join(src, 'agent.cordis.yml'))) return; // 仓库缺模板(如旧安装) → 静默跳过
-  const dst = join(home, '.agent-presets', id);
+  const dir = join(home, 'profiles', profile);
+  const manifestPath = join(dir, 'package.json');
   try {
-    const newerThan = (a, b) => { try { return statSync(a).mtimeMs > statSync(b).mtimeMs; } catch { return true; } };
-    let changed = false;
-    for (const f of ['preset.yml', 'agent.cordis.yml']) {
-      const s = join(src, f);
-      const d = join(dst, f);
-      if (!existsSync(d)) { mkdirSync(dst, { recursive: true }); copyFileSync(s, d); changed = true; }
-      else if (newerThan(s, d)) { copyFileSync(s, d); changed = true; } // 模板更新 → 刷新
-    }
-    if (changed) console.error(`dsh-ohos: 已 seed 内置预设 ${id}(${dst})`);
-    const sp = join(home, 'settings.yaml');
-    if (existsSync(sp)) {
-      if (!/^agent-presets:/m.test(readFileSync(sp, 'utf8'))) {
-        appendFileSync(sp, `\nagent-presets:\n  default: ${id}\n`);
-        console.error(`dsh-ohos: 已 seed 默认预设 agent-presets.default=${id}`);
-      }
+    let manifest;
+    if (existsSync(manifestPath)) {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     } else {
-      // 全新 home: settings.yaml 尚未生成(dsh 首次写设置时才创建), 直接建一个最小文件,
-      // 否则「默认预设」要等第二次启动才生效, 与「开箱即带系统提示词」的承诺不符。
-      writeFileSync(sp, `agent-presets:\n  default: ${id}\n`);
-      console.error(`dsh-ohos: 已创建 settings.yaml 并 seed 默认预设 agent-presets.default=${id}`);
+      const bundles = PROFILE_TEMPLATE_BUNDLES[profile];
+      // 未知 profile 名交给官方报错(官方会提示用 dsh plugin 初始化)，不擅自造清单。
+      if (bundles === undefined) return;
+      mkdirSync(dir, { recursive: true });
+      manifest = {
+        name: `dsh-profile-${profile}`,
+        private: true,
+        dependencies: {},
+        dsh: { profile: { bundles: [...bundles] } },
+      };
+      const patchPath = join(dir, 'cordis.patch.yml');
+      if (!existsSync(patchPath)) writeFileSync(patchPath, PROFILE_PATCH_TEMPLATE);
+      const wsPath = join(dir, 'pnpm-workspace.yaml');
+      if (!existsSync(wsPath)) writeFileSync(wsPath, PROFILE_PNPM_WORKSPACE);
+      console.error(`dsh-ohos: 已初始化 profile ${profile}(全新 home)`);
     }
+    const bundles = manifest?.dsh?.profile?.bundles;
+    if (!Array.isArray(bundles) || bundles.includes(bundle)) return;
+    bundles.push(bundle);
+    writeFileSync(manifestPath, JSON.stringify(manifest, void 0, 2) + '\n');
+    console.error(`dsh-ohos: 已启用内置预设 bundle ${bundle}(profile ${profile})`);
   } catch { /* 只读/无写权限时静默跳过, 不阻塞启动 */ }
 }
-seedBuiltinPreset();
+ensurePresetBundle();
+
+// 旧预设目录提示: 0.1.7 起 `$DSH_HOME/.agent-presets/` 不再被读取(官方已移除该机制),
+// 用户自建预设需要迁移成声明行否则会从花名册消失。这里只提示、不擅自改动用户内容。
+function hintLegacyPresets() {
+  const want = (process.env.DSH_OHOS_PRESET || '').trim();
+  if (want === 'off' || want === '0' || want === 'false') return;
+  const home = process.env.DSH_HOME || join(process.env.HOME || '', '.dsh');
+  const dir = join(home, '.agent-presets');
+  try {
+    if (!existsSync(dir)) return;
+    const ids = readdirSync(dir).filter((n) => n !== 'harmonyos-chat' && existsSync(join(dir, n, 'agent.cordis.yml')));
+    if (!ids.length) return;
+    const patchPath = join(home, 'profiles', detectProfileName(args), 'cordis.patch.yml');
+    if (existsSync(patchPath) && readFileSync(patchPath, 'utf8').includes('migrated legacy presets')) return;
+    console.error(`dsh-ohos: 提示 — ${ids.length} 个旧预设(${ids.join(', ')})在 0.1.7 起不再被读取;`
+      + `\n           如仍要用, 迁移到新机制: node ${join(ROOT, 'scripts', 'migrate-presets.mjs')} --write`);
+  } catch { /* 忽略 */ }
+}
+hintLegacyPresets();
 
 const childEnv = { ...process.env };
 if (childEnv.DSH_OHOS_FORCE_DANGER === undefined) childEnv.DSH_OHOS_FORCE_DANGER = '1';

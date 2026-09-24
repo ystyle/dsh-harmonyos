@@ -38,6 +38,12 @@ jobs:
       - name: fork 重建校验
         run: npm run sync-forks
 
+      # 内置预设校验(issue #5 的教训): 逐行 require.resolve + 与官方 standard 预设比对漂移。
+      # 「引用了上游已移除的包」会让新会话挂载失败、前端只 console.warn(按钮点了没反应),
+      # 必须在发布前拦住。
+      - name: 内置预设校验
+        run: npm run preset-check
+
       # 启动器/补丁引擎/compat/脚本的语法检查(node --check, ESM 按 package.json type 解析)。
       - name: 语法检查
         run: |

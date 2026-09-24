@@ -8,3 +8,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 .forks-out/
+
+# 本地打包产物(npm pack)
+dsh-harmonyos-*.tgz

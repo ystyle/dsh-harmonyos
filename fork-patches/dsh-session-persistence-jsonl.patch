@@ -1,15 +1,17 @@
+diff --git a/lib/index.js b/lib/index.js
+index a42f2a2..a7680a3 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -1,7 +1,7 @@
  import z from "@deepseek-ai/schemastery";
- import { SessionFormatUnsupportedMigrationError, sessionFormatCatalog } from "@deepseek-ai/dsh-session-format-catalog";
+ import { SessionFormatUnsupportedMigrationError, createSessionFormatCatalogWithChildren, historicalSessionFormatCatalog, sessionFormatCatalog } from "@deepseek-ai/dsh-session-format-catalog";
  import { readdirSync } from "node:fs";
 -import { link, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate } from "node:fs/promises";
 +import { link, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate , rename} from "node:fs/promises";
  import { basename, dirname, isAbsolute, join, parse, resolve, toNamespacedPath } from "node:path";
  import { performance } from "node:perf_hooks";
  import { scheduler } from "node:timers/promises";
-@@ -2028,13 +2028,24 @@
+@@ -2030,13 +2030,24 @@ async function publishCurrentExclusive(staged, currentPath, internals) {
  		/* v8 ignore next -- the filesystem error is already complete. */
  		throw error;
  	}
@@ -36,7 +38,7 @@
  	}
  	await syncDirectory(dirname(currentPath), internals);
  	return true;
-@@ -2970,7 +2981,8 @@
+@@ -3139,7 +3150,8 @@ var JsonlSessionPersistence = class extends SessionPersistence {
  		const tmp = await this.writeSyncedTempFile(finalPath, content);
  		let linked = false;
  		try {
