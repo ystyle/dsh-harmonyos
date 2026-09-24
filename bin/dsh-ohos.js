@@ -121,6 +121,27 @@ function codeSign(file) {
   return true;
 }
 
+// 如实报告某个原生产物的签名类别(不做任何"应该是 AGC"的假设):
+//   证书签名 = display-sign 打出证书链; self-sign = 自签; 其余 = 未签名/无工具。
+// 只在铺位那一刻调用一次(~100ms), 不进驻每轮启动的热路径。
+function describeSignature(file) {
+  const tool = signTool();
+  if (!tool) return '签名未知(无 binary-sign-tool)';
+  try {
+    const r = spawnSync(tool, ['display-sign', '-inFile', file], { encoding: 'utf8' });
+    const out = String(r.stdout || '') + String(r.stderr || '');
+    if (/certificate #0/i.test(out)) {
+      const m = /Subject:.*?CN=([^,\n]+)/i.exec(out);
+      // display-sign 把非 ASCII 打成 \Uxxxx 转义, 解码后更易核对是谁的证书。
+      const who = m ? m[1].trim().replace(/\\U([0-9a-fA-F]{4})/gu, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\+$/u, '') : '';
+      return '证书签名' + (who ? '(' + who + ')' : '');
+    }
+    if (/self-sign/i.test(out)) return '自签(self-sign, 非证书签名)';
+    if (/signature is not found/i.test(out)) return '未签名';
+    return '签名状态未知';
+  } catch { return '签名检查失败'; }
+}
+
 // 递归找某包的全部实例(嵌套布局下 koffi/node-pty 可能多份: 深层包各自嵌装)。
 // 找到含 package.json 的合法实例即不下钻(避免把 koffi 包内的 src/koffi、build/koffi 误当实例)。
 function findPkgDirs(name, from = NM) {
@@ -148,7 +169,8 @@ function ensureKoffi(nodeBin) {
     const cnoke = join(dir, 'cnoke.cjs');
     const loaderNode = join(dir, 'build', 'koffi', 'openharmony_arm64', 'koffi.node');
     const outNode = join(dir, 'build', 'koffi', 'openharmony_arm64', 'v26.8.1_native', 'Release', 'Output', 'koffi.node');
-    // 预编译优先(AGC 签名): prebuilt/koffi-<版本>-linux-arm64-musl.node → 铺全部 triplet
+    // 预编译优先: prebuilt/koffi-<版本>-linux-arm64-musl.node → 铺全部 triplet。
+    // 签名类别如实报告(勿假设 AGC): 仓库里的 koffi 预编译用 hmsign-release 证书签名产出。
     const ver = (() => { try { return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version || ''; } catch { return ''; } })();
     const pre = join(ROOT, 'prebuilt', 'koffi-' + ver + '-linux-arm64-musl.node');
     if (existsSync(pre)) {
@@ -160,7 +182,7 @@ function ensureKoffi(nodeBin) {
         copyFileSync(pre, target);
         used = true;
       }
-      if (used) console.error('dsh-ohos: 使用预编译 koffi(' + ver + ', AGC 签名)');
+      if (used) console.error('dsh-ohos: 使用预编译 koffi(' + ver + ', ' + describeSignature(pre) + ')');
       continue;
     }
     if (!existsSync(outNode)) {
@@ -215,13 +237,13 @@ function ensurePty(nodeBin) {
   for (const dir of dirs) {
     const ptyNode = join(dir, 'build', 'Release', 'pty.node');
     if (existsSync(ptyNode)) continue;
-    // 预编译优先(AGC 签名, 免工具链): prebuilt/node-pty-<版本>-linux-arm64-musl.node
+    // 预编译优先(免工具链): prebuilt/node-pty-<版本>-linux-arm64-musl.node
     const ver = (() => { try { return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version || ''; } catch { return ''; } })();
     const pre = join(ROOT, 'prebuilt', 'node-pty-' + ver + '-linux-arm64-musl.node');
     if (existsSync(pre)) {
       mkdirSync(dirname(ptyNode), { recursive: true });
       copyFileSync(pre, ptyNode);
-      console.error('dsh-ohos: 使用预编译 node-pty(' + ver + ', AGC 签名)');
+      console.error('dsh-ohos: 使用预编译 node-pty(' + ver + ', ' + describeSignature(pre) + ')');
       continue;
     }
     console.error('dsh-ohos: 无匹配预编译 node-pty(' + ver + '), 走源码编译');

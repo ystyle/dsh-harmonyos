@@ -1,6 +1,6 @@
 {
   "name": "@dsh-harmonyos/preset-harmonyos-chat",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "dsh-harmonyos 内置预设 harmonyos-chat：bundle 声明（0.1.7+ 的 preset 机制），系统提示词预置鸿蒙运行环境说明。",
   "keywords": [
     "dsh",

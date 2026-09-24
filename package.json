@@ -1,6 +1,6 @@
 {
   "name": "dsh-harmonyos",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "DeepSeek Harness for HarmonyOS — 一条命令装好:JS-only 替代/裁剪 profile、鸿蒙文件系统补丁、compat loader(zstd/fs-ext/sharp shim)、内置预设 bundle、自启脚本(优先原生 zstd 的 node)。装完跑 dsh-ohos 即可。",
   "keywords": [
     "dsh",
@@ -36,7 +36,7 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.1.7-rc.2",
-    "@dsh-harmonyos/preset-harmonyos-chat": "0.13.1",
+    "@dsh-harmonyos/preset-harmonyos-chat": "0.13.2",
     "@deepseek-ai/dsh-host-directory-picker-auto": "0.1.7-rc.2",
     "koffi": "3.3.1",
     "zstd-codec": "^0.1.5",
