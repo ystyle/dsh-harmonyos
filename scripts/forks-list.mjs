@@ -30,14 +30,6 @@ export const FORKS = [
     ],
   },
   {
-    fork: '@dsh-harmonyos/dsh-fs-local',
-    upstream: '@deepseek-ai/dsh-fs-local',
-    version: '0.1.7-rc.2',
-    harmony: 1,
-    patch: 'dsh-fs-local.patch',
-    markers: ['HarmonyOS /storage mounts reject hard links'],
-  },
-  {
     fork: '@dsh-harmonyos/node-addon-system',
     upstream: '@deepseek-ai/node-addon-system',
     version: '0.1.2',
@@ -69,15 +61,10 @@ export const FORKS = [
     patch: 'dsh-credentials-local.patch',
     markers: ['HarmonyOS patch: 文件系统强制组位'],
   },
-  {
-    fork: '@dsh-harmonyos/dsh-sandbox-policy',
-    upstream: '@deepseek-ai/dsh-sandbox-policy',
-    version: '0.1.7-rc.2',
-    harmony: 1,
-    patch: 'dsh-sandbox-policy.patch',
-    markers: ['DSH_OHOS_FORCE_DANGER'],
-  },
-  // 待定/后置: loopbackAuth(先做配置化调研)、vision(可选插件, 未安装)。
+  // 0.1.7-rc.2 起去掉两个冗余 fork: dsh-fs-local / dsh-sandbox-policy
+// —— 上游改为精确钉版, peer 要求 0.1.7-rc.2, fork 的 -harmony.N 不再满足(ERESOLVE);
+//    这两处 patch.mjs 本就有等价的残余补丁(已改成多实例覆盖), 去 fork 后语义不变。
+// 待定/后置: loopbackAuth(先做配置化调研)、vision(可选插件, 未安装)。
   // C 类(升版删除, 不 fork): settingsCompat / permission / cordisLoader。
 ];
 
