@@ -9,6 +9,40 @@
 
 ## 版本历史
 
+- **v0.14.0** (2026-10-01) — 适配官方 dsh **0.2.0-rc.2**
+  - 官方 `@deepseek-ai/dsh` → **0.2.0-rc.2**；6 个 fork 包升到 `0.2.0-rc.2-harmony.1`
+    （`node-addon-system` 上游仍 0.1.2 不变）；`@img/sharp-wasm32` 0.35.4 → **0.35.5**
+    （跟随上游 sharp 0.35.5，该版仍把 `@img/sharp-wasm32` 当 wasm 回退，且它已不在 sharp 的
+    optionalDependencies 里，故本发行版的直接依赖必须保留）；koffi 3.3.1 / node-pty 1.2.0-beta.15 /
+    rg 零变化 → prebuilt 全部复用
+  - 补丁面：**6 个 fork patch 在新基座原样通过**（session / attachment / client-resources /
+    fs-search / credentials / node-addon-system）；**残余锚点 39/39 命中**（permission-presets /
+    client-connection / fs-local / sandbox-policy / node-addon-require-builtin 五个包里上游源码
+    与 0.1.7-rc.2 逐字节相同，唯一例外是 `node-addon-require-builtin` 的 ^0.1.6 现在解析到 0.1.7，
+    它与 0.1.6 逐字节相同）
+  - **koffi 版本收敛（本次唯一的运行路径改动）**：0.2.0 把 koffi 从 `^3.1.0` 改成精确钉住
+    **3.1.1**（dsh-fs-local / dsh-subprocess-local / dsh-sandbox-windows-acl / dsh-win32-process /
+    libreoffice-kit / dsh-host-directory-picker-native 六处），npm 于是为每个消费者嵌套一份 3.1.1；
+    而 3.1.1 的 statx 分支只写了 `#if defined(__linux__)`（3.3.1 才有 `&& defined(STATX_TYPE)`），
+    在鸿蒙头文件下源码编译必失败（实测 `base.cc:2955: use of undeclared identifier 'STATX_BTIME'`），
+    启动器退到源码编译并中止 —— 表现为首启直接失败。启动器新增 `convergeKoffiVersions()`：
+    本发行版 pin 的 3.3.1（有证书签名预编译、源码也编得过）存在时，移除其它版本的实例，
+    依赖方 `require('koffi')` 沿 node_modules 向上解析即回退到它
+  - 上游其他变化：新增可选 bundle `dsh-experimental-schedule-bundle`（`dsh-app-boot` 里唯一的改动
+    是 OPTIONAL_BUNDLES 多一行）；CLI 多了 Desktop 保留 profile 的开关（对 web/headless 无影响）；
+    机制层（`dsh-atomic-write` / `dsh-home-paths` / profile 模板 / 官方 standard 预设 / 会话日志格式）
+    与 0.1.7-rc.2 逐字节相同
+  - **给已安装用户的提示**：0.2.0 起官方对 profile 里装的插件做 **peer 兼容检查**，不满足就**自动禁用该行**
+    并打印原因（不是启动失败）。实测真实 home 副本下 `@deepseek-ai/dsh-mcp-client@0.1.0-rc.8` 的三行 MCP
+    （mcp-everything / mcp-harmonyos / mcp-wand）被禁用，需把它更新到与 0.2.0 兼容的版本，
+    或用 `dsh plugin allow-version` 显式接受风险后再用
+  - 验证（本机实测）：全新安装树（0.2.0-rc.2 + 6 个 fork + 内置预设 bundle）→ `preflight` 39/39 命中、
+    `patch` 首轮全绿且复跑 0 处变更、`preset-check` 无上游漂移；**两种布局**的 `smoke` 均 PASS
+    （token 303 + cookie → `/` 200：提升式端口 44053、嵌套式端口 34105，各用全新 `DSH_HOME`）；
+    真实 home 副本（profiles/storages/凭据）在 44101 端口启动正常、
+    `/` 200、67 个客户端 entry（含 `client-resources`）；headless 真实模型跑完一轮（创建并读回文件），
+    会话经 fork 补丁的 link→rename 发布路径落成 `session.v4.jsonl.zstd`；sharp 0.35.5 + wasm 0.35.5 实测
+    PNG/WebP/JPEG 编码 + 缩放 + 解码 + 元数据全通
 - **v0.13.2** (2026-09-25) — **koffi 预编译改用证书签名 + 启动器如实报告签名**
   - 问题：0.13.1 随包的 `prebuilt/koffi-3.3.1-…node` 是**本地源码编译 + 自签**（`-selfSign 1`）产物，
     而仓库其它预编译（node-pty）是**证书签名**。更糟的是启动器无条件打印「AGC 签名」，

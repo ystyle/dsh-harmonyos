@@ -39,7 +39,7 @@
 
 | 路径 | 职责 |
 |---|---|
-| `bin/dsh-ohos.js` | **唯一用户入口**。解析 `NODE_OHOS`、首启自愈（patch/prune/prebuilt 铺位/预设注册）、注入 env、转发信号给 dsh 子进程 |
+| `bin/dsh-ohos.js` | **唯一用户入口**。解析 `NODE_OHOS`、首启自愈（patch/prune/prebuilt 铺位/koffi 版本收敛/预设注册）、注入 env、转发信号给 dsh 子进程 |
 | `lib/patch.mjs` | 安装时补丁引擎（锚点匹配 + 幂等标记 + 多实例覆盖）。**残余**补丁住这里 |
 | `lib/anchors.mjs` | 升级预检：对**未 fork** 的文件核对锚点，失配即拦下（`npm run preflight`） |
 | `lib/prune.mjs` | 裁掉本平台无意义的包（如 `dsh-pwsh-sandbox`） |
@@ -120,11 +120,17 @@ npm run preset-check
 # 5) 全新安装验证（必须两种布局都测，见 §7）
 ```
 
+**发布顺序**：fork 包必须先发布（`npm run sync-forks -- --publish`）再重新生成 `package-lock.json`
+（`npm install --package-lock-only --ignore-scripts`）。别名指向的 `<新版本>-harmony.1` 在注册表上存在
+之前，lockfile 生成不出来（ETARGET / E404），而 package.json 与 lockfile 不一致时 `npm ci` 直接拒绝安装 ——
+所以「改完 pin 先跑 npm ci」这一步要等 fork 发完。
+
 **版本号纪律**：fork 发布版本 = `<上游版本>-harmony.<n>`；fork 自身修复 `n+1`，
 重新跟随上游时回到 `1`。`node-addon-system` 上游长期停在 `0.1.2`，别跟着主版本乱升。
 
 **必看的机制性改动**（踩过的）：
-- 依赖由 `^` 改成**精确钉版** → 影响 fork 别名能否满足 peer（§3.6）。
+- 依赖由 `^` 改成**精确钉版** → 影响 fork 别名能否满足 peer（§3.6）；原生包被精确钉版后
+  npm 会为每个消费者**嵌套一份该版本**，那份常常既没有配套预编译、源码也编不过（§6.1 的 koffi 3.1.1）。
 - 启动解析行为变化（如 `resolutionMode` 默认 runtime）→ 会必经
   `node-addon-require-builtin`，鸿蒙无平台二进制 → 需要 JS 回退补丁。
 - 预设 / settings / 凭据 / 会话日志格式（Session V4）等**机制重写**，影响面远大于工具增减。
@@ -139,8 +145,14 @@ npm run preset-check
 → 找不到配套预编译 → **回退源码编译**（慢、需工具链）。v0.13.1 就是这么翻的车。
 
 - 对策：在 `package.json` 里**直接依赖并精确钉住**要预编译的包
-  （现有：`"koffi": "3.3.1"`、`"@img/sharp-wasm32": "0.35.4"`；`zstd-codec` 用 `^`）。
+  （现有：`"koffi": "3.3.1"`、`"@img/sharp-wasm32": "0.35.5"`；`zstd-codec` 用 `^`）。
 - 升级这些版本时：钉版本 + 补对应 `prebuilt/` 文件，两件事必须一起做。
+- **上游反过来把原生包精确钉版**（0.2.0-rc.2 把 koffi 钉在 `3.1.1`，六处）→ npm 为每个消费者
+  嵌套一份那个版本。3.1.1 的 statx 分支只有 `#if defined(__linux__)`（`3.3.1` 才加上
+  `&& defined(STATX_TYPE)`），在鸿蒙头文件下编不过（实测 `base.cc:2955: use of undeclared
+  identifier 'STATX_BTIME'`），启动器会退到源码编译并中止。启动器因此多了
+  `convergeKoffiVersions()`：本发行版 pin 的那份存在时，移除其它版本的实例，依赖方的
+  `require('koffi')` 沿 node_modules 向上解析即回退到它。
 
 ### 6.2 产出链（三选一，优先级从高到低）
 
@@ -254,6 +266,8 @@ git tag v<版本> && git push origin main --tags
 | 症状 | 根因 | 对策 |
 |---|---|---|
 | 首启打印「编译 koffi(源码…)」`Failed to load prebuilt binary` | koffi 实际版本没有配套 `prebuilt/` | §6.1：钉住版本 + 补预编译；别只补文件不钉版本 |
+| 首启打印「移除 koffi@3.1.1(非本发行版版本…)」后正常启动 | 上游精确钉版导致的嵌套副本 | 启动器 `convergeKoffiVersions()`（§6.1） |
+| 源码编译 koffi 报 `use of undeclared identifier 'STATX_BTIME'` | 该版本（≤3.1.1）的 statx 分支缺 `STATX_TYPE` 保护，鸿蒙头文件下编不过 | 不要试图编它；让树收敛到 `prebuilt/` 里那份版本（§6.1） |
 | `npm ci` 报 `ERESOLVE` / peer 冲突 | 上游精确钉版 vs fork 的 `-harmony.N` | §3.6：去掉冗余 fork 改走残余补丁（先确认补丁等价） |
 | 新建会话「按钮点了没反应」 | 预设引用了上游已移除的包（前端只 warn） | `npm run preset-check` 定位；同步官方 standard 预设 |
 | `resume failed: Cannot find module '@deepseek-ai/node-addon-system-<plat>'` | flock 原生绑定：嵌套实例漏补丁 | 补丁逐实例（`allInstances`），校验也逐实例 |

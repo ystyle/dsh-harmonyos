@@ -4,13 +4,13 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
-最新：**v0.13.2**（2026-09-25）— koffi 预编译改用证书签名 + 启动器如实报告签名
+最新：**v0.14.0**（2026-10-01）— 适配官方 dsh **0.2.0-rc.2**（koffi 版本收敛）
 
 近期版本：
 
+- **v0.13.2** — koffi 预编译改用证书签名 + 启动器如实报告签名
 - **v0.13.1** — 修复 koffi 版本漂移导致的源码编译回退（精确钉版 `koffi 3.3.1`）
 - **v0.13.0** — 适配官方 dsh **0.1.7-rc.2**（内置预设机制重写为 bundle 声明）
-- **v0.12.1** — 修复内置预设引用已移除的包导致「新建会话按钮点了没反应」（[issue #5](https://github.com/ystyle/dsh-harmonyos/issues/5)）
 
 完整历史（含每个版本的根因与验证方式）见 **[CHANGELOG.md](CHANGELOG.md)** —— 升级前建议读一下当前版本条目。
 
@@ -27,7 +27,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
   # ~/.zshrc
   export NODE_OHOS="$(brew --prefix)/opt/node/bin/node"
   ```
-- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.1.7-rc.2)。
+- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.2.0-rc.2)。
 
 ## 安装与启动
 
@@ -102,7 +102,8 @@ DSH_RG_PATH="$HOME/.local/bin/rg" dsh-ohos
 | 升级预检 | `lib/anchors.mjs` + `scripts/preset-check.mjs` | **`npm run preflight [树路径]`**: fork 文件(自带标记)逐文件跳过, 残余(未 fork)锚点必须全部命中。**`npm run preset-check`**: 内置预设逐行 `require.resolve` + 与官方 `standard` 预设比对漂移。两者都在 CI 门禁里 |
 | profile 层 | `overlays/harmonyos.patch.yml` + `lib/prune.mjs` | overlay **启用** subprocess/sandbox/bash-sandbox/open-in-app/**tool-fs-search**(走 DSH_RG_PATH); prune 仅移除 pwsh-sandbox |
 | 旧预设迁移 | `scripts/migrate-presets.mjs` | 0.1.7 起 `.agent-presets/` 目录不再被读取 → 把旧目录转成 `@deepseek-ai/dsh-agent-preset` 声明行写进 profile patch(自动把失效的 persona `text` 改名为 `prefix`); 默认预演, `--write` 才落盘 |
-| 预编译 | `prebuilt/` | koffi-3.3.0 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
+| 预编译 | `prebuilt/` | koffi-3.3.1 / node-pty-1.2.0-beta.15(linux-arm64-musl, N-API) + **rg**(ripgrep, musl) — 均 **hmsign-release AGC 签名** → 免编译免工具链; 版本不匹配自动回退源码编译 |
+| koffi 版本收敛 | `bin/dsh-ohos.js` | 上游 0.2.0 把 koffi 精确钉在 3.1.1(六处) → npm 为每个消费者嵌套一份 3.1.1, 而该版本在鸿蒙头文件下**编不过**。启动器把树收敛到本发行版钉住的 3.3.1(有证书签名预编译), 移除其它版本实例, `require('koffi')` 沿 node_modules 向上解析回退 |
 
 补丁锚点为精确代码片段, 失配即**报错拒绝**(绝不静默打错)。
 
@@ -183,7 +184,9 @@ npm install && npm link && dsh-ohos
 
 - 无 OS 沙箱: 默认 danger-full-access 非沙箱执行(个人设备语义, 同 Claude Code/pi 本机行为)
 - 预编译 rg 的 exec 在受限 pi 沙箱内可能被白名单拒(本沙箱只认受信 inode), 真机无此限制; 可用 `DSH_RG_PATH` 指向本机受信 rg
-- 预编译覆盖 koffi 3.3.0 / node-pty 1.2.0-beta.15 / rg(musl ripgrep); 升级需配套新 prebuilt 或走源码编译回退
+- 预编译覆盖 koffi 3.3.1 / node-pty 1.2.0-beta.15 / rg(musl ripgrep); 升级需配套新 prebuilt 或走源码编译回退。
+  上游 0.2.0 把 koffi 精确钉在 3.1.1(六处依赖), 而 3.1.1 在鸿蒙头文件下源码编译必失败 → 启动器把
+  树里的 koffi 收敛到本发行版钉住的 3.3.1(见上表「koffi 版本收敛」)
 - 图片编解码走 sharp **wasm32**(比原生慢, 但功能完整: decode + resize + webp/jpeg 编码全阶梯实测通过)。
   曾尝试原生 `@img/sharp-linuxmusl-arm64`: AGC 签名后能过沙箱 dlopen 校验, 但该 musl 预编译绑定需要
   `libstdc++.so.6`, 而鸿蒙 node 是 musl 构建、系统内无此库 → 原生后端不可用, 维持 wasm32。
