@@ -257,6 +257,7 @@ git tag v<版本> && git push origin main --tags
 `127.0.0.1`**（只改 Host 会被官方同源校验判跨源 → API 403）。模板见该文件 |
 | git push | 系统 git 配置里指向**已失效的代理** `192.168.3.6:1081`（`~/.ohos_git/.gitconfig`）。
 直连可用 → `git -c "http.https://github.com/.proxy=" push ...` |
+| git 不可达时的替代路径 | 若只有 `api.github.com` 通、`github.com:443` 被拦（实测过）：**合并 PR** 用 `gh pr merge <n> --merge`（服务端完成）；**推送提交**用 Git Data API —— `gh api repos/<o>/<r>/git/blobs`（content=base64）→ `git/trees`（`base_tree`=main 的 tree）→ `git/commits`（`parents=[main sha]`）→ `PATCH git/refs/heads/main`。推送后本地 clone 会与 origin 分叉（内容同、SHA 不同）：网络恢复后 `git fetch origin main && git reset --hard origin/main` 对齐 |
 | 签名 | `zsh -ic 'hmsign-release <file>'`（§6.3）；`binary-sign-tool display-sign`（§6.4） |
 | 生产实例 | `dsh web` 在 3080；**它是当前 GUI 的服务进程** —— 不要在自己这一轮里 kill/重启它
 （会掐断会话），需要重启时让用户做 |
