@@ -161,8 +161,30 @@ function findPkgDirs(name, from = NM) {
   return found;
 }
 
+// koffi 版本收敛: 上游 0.2.0-rc.2 起把 koffi 从 ^3.1.0 改成精确钉住 3.1.1(六处: dsh-fs-local /
+// dsh-subprocess-local / dsh-sandbox-windows-acl / dsh-win32-process / libreoffice-kit /
+// dsh-host-directory-picker-native), npm 于是为每个消费者嵌套一份 3.1.1。而 3.1.1 的 statx 分支只有
+// `#if defined(__linux__)` 保护(3.3.1 才补上 `&& defined(STATX_TYPE)`), 在鸿蒙头文件下编不过 ——
+// 实测 dsh-ohos 会退到源码编译并失败。本发行版钉 3.3.1(有证书签名预编译, 源码也编得过), 故把树收敛到
+// 这一份: 移除其它版本的实例, 依赖方 require('koffi') 沿 node_modules 向上解析即回退到它。
+// 只有「本发行版那份确实存在」时才收敛, 否则一棵树都不会剩, subprocess 直接起不来。
+function convergeKoffiVersions() {
+  const pinned = (() => { try { return JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).dependencies?.koffi || ''; } catch { return ''; } })();
+  if (!pinned) return;
+  const versionOf = (dir) => { try { return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version || ''; } catch { return ''; } };
+  const dirs = findPkgDirs('koffi');
+  if (!dirs.some((d) => versionOf(d) === pinned)) return;
+  for (const dir of dirs) {
+    const ver = versionOf(dir);
+    if (ver === pinned) continue;
+    rmSync(dir, { recursive: true, force: true });
+    console.error('dsh-ohos: 移除 koffi@' + (ver || '?') + '(非本发行版版本 → 回退到 pin 的 ' + pinned + ')');
+  }
+}
+
 // koffi 就地构建: 补丁 cnoke(cmake 认 Linux/aarch64) + cnoke 构建 + .codesign 签名。
 function ensureKoffi(nodeBin) {
+  convergeKoffiVersions();
   const dirs = findPkgDirs('koffi');
   if (dirs.length === 0) { console.error('dsh-ohos: 树里没有 koffi — subprocess 需要真 koffi'); return; }
   for (const dir of dirs) {
