@@ -47,6 +47,8 @@
   - **给已安装用户的提示**：profile 里钉着 `@deepseek-ai/dsh-mcp-client@0.2.0-rc.2` 的插件行会被 0.2.1 的
     兼容检查禁用（实测 `mcp-everything` / `mcp-harmonyos` / `mcp-wand` 三行），把它升到 `0.2.1-rc.2`
     或用 `dsh plugin allow-version` 显式接受风险后再用
+  - **后继规划**：从下一版起预计**只同步官方 release 版本**，不再逐个跟进 alpha/rc 预发布
+    （原因与例外见 [README.md](README.md#后继规划)）
 - **v0.14.0** (2026-10-01) — 适配官方 dsh **0.2.0-rc.2**
   - 官方 `@deepseek-ai/dsh` → **0.2.0-rc.2**；6 个 fork 包升到 `0.2.0-rc.2-harmony.1`
     （`node-addon-system` 上游仍 0.1.2 不变）；`@img/sharp-wasm32` 0.35.4 → **0.35.5**
