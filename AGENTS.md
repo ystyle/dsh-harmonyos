@@ -275,6 +275,8 @@ git tag v<版本> && git push origin main --tags
 | `atomic-write: timed out waiting for the writer lock` | 进程被 SIGKILL 留下无主 `.lock` | 启动器 `clearStaleWriteLocks()` 已处理；别绕过它 |
 | 远程访问 API 403 | 转发器只重写 Host | 重写 `Origin`/`Referer` 为 `127.0.0.1`（§9） |
 | 预设从花名册消失 | 0.1.7 起 `.agent-presets/` 目录不再被读取 | `scripts/migrate-presets.mjs --write`（升级后跑） |
+| 启动日志 `disabling profile plugin row "<row>"` | 0.2.0 起官方对 profile 里的插件做兼容检查（0.2.1 起有 `engines.dsh` 就只看它，否则看 `@deepseek-ai/dsh*` peer），不满足即禁用该行（不是启动失败） | 把该插件升到与运行时同版本；或用 `dsh plugin allow-version` 显式接受风险 |
+| profile 清单里少了某个 bundle | 0.2.1 起 `dsh-app-boot` 的 `RETIRED_BUNDLES` 会把它从 `dsh.profile.bundles` 移除（如 `dsh-experimental-schedule-bundle`） | 预期行为；换用同功能的在售 bundle |
 
 ## 11. 红线（不要做）
 

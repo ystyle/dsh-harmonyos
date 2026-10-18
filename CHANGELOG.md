@@ -9,6 +9,44 @@
 
 ## 版本历史
 
+- **v0.15.0** (2026-10-18) — 适配官方 dsh **0.2.1-rc.2**
+  - 官方 `@deepseek-ai/dsh` → **0.2.1-rc.2**；6 个 fork 包升到 `0.2.1-rc.2-harmony.1`
+    （`node-addon-system` 上游仍是 0.1.2）；原生依赖 koffi **3.1.1**（上游继续精确钉版，本发行版仍钉 3.3.1 并由启动器收敛）/
+    node-pty 1.2.0-beta.15 / sharp-wasm 0.35.5 / ripgrep 1.18.0 **零变化** → prebuilt 全部复用
+  - 补丁面：**6 个 fork patch 在新基座原样通过**（session / attachment / client-resources /
+    fs-search / credentials / node-addon-system）；残余锚点 9/9 命中
+  - **客户端鉴权补丁按新基座改写（本次唯一的补丁改动）**：0.2.1 给 cookie 校验与签发加了 `secure` 参数，
+    authority 改由 `requestAudience(headers, secure)` 取，`authorizeIndex` 的 token 分支重写成
+    「有效 token 换 cookie」「有效 cookie 直接 303」两段。本机回环免 token 补丁随之调整：
+    `mintCookie(req, res, authority, secure)` 带上 secure、`loopbackSession(req, secure)` 用新 helper 取 authority，
+    删掉旧的内联 mint 替换（上游自己就会签发）与对应的 `token 交换内联 mint` 锚点，只保留两处回环兜底
+  - **内置预设与官方 standard 同步**（`npm run preset-check` 全绿，行结构逐行一致）：
+    新增 `time-context`、`tool-schedule`、`tool-plugin-market`（disabled）；删除 `tool-ralph`、
+    `tool-subagent-codex`、`tool-subagent-claude-code`；persona 去掉 `suffix`（cwd 改由上游新增的
+    `dsh-working-directory` 注入 `Current working directory: …`）；plan-mode 段落措辞更新；
+    delegation 组去掉 `backgroundMode`（默认值由上游决定）。本发行版与 upstream 的唯一差别仍是
+    persona 的鸿蒙运行环境 prefix 与预设 id/描述
+  - 上游机制变化（逐包 diff 核对，本发行版无需额外改动）：`dsh-base` 组合新增
+    `remote-access` / `working-directory` / `tool-working-directory` / `web-deepseek-api`，
+    移除 `skill-badge` / `tool-ralph`，`session-title` 的 `maxOutputTokens` 64 → 4096；
+    `dsh-app-boot` 的插件兼容检查改为「有 `engines.dsh` 只看它，否则看 `@deepseek-ai/dsh*` peer」，
+    并新增 `RETIRED_BUNDLES`（自动把 `dsh-experimental-schedule-bundle` 从 profile 清单移除）——
+    profile 模板（patch 模板 / pnpm-workspace）与启动器内置副本逐字节相同，启动器无需改；
+    `dsh-headless` 禁用 `credentials` / `authorization` / `deepseek-account`（一次性任务改用启动时的凭据）
+  - 上游增删包：不再随 dsh 发布 `dsh-tool-ralph` / `dsh-webhook` / `dsh-webhook-github` /
+    `dsh-hooks-claude-code` / `dsh-hooks-codex` / `dsh-experimental-schedule-bundle`；
+    新增 `dsh-experimental-session-search` / `-ralph-bundle` / `-terminal-bundle` / `-badge-skill-bundle` /
+    `-session-titles-bundle` / `-cot-translation-bundle` / `-inspector-profile` / `-plugin-market-bundle` /
+    `-tool-worktree` 与 `dsh-tool-schedule`
+  - 验证（本机实测）：0.2.1-rc.2 全量依赖树 + 6 个 fork 产物覆盖 → `preflight` 9/9、
+    `patch` 首轮全绿且复跑 0 处变更、`prune` 移除 `dsh-pwsh-sandbox`；`preset-check` 无上游漂移；
+    **两种布局**（嵌套 / 提升式）的 `smoke` 均 PASS（token 303 + cookie → `/` 200，各用全新 `DSH_HOME`）；
+    真实 home 副本启动 web → token 303、`/` 200（38778 字节）、57 个客户端 entry（含 `client-resources`）、
+    浏览器实际收到的应用批次产物里含 ArkWeb `protocolOf` 回退；headless 真实模型跑完一轮（创建并读回文件），
+    会话写为 `session.v4.jsonl.zstd`
+  - **给已安装用户的提示**：profile 里钉着 `@deepseek-ai/dsh-mcp-client@0.2.0-rc.2` 的插件行会被 0.2.1 的
+    兼容检查禁用（实测 `mcp-everything` / `mcp-harmonyos` / `mcp-wand` 三行），把它升到 `0.2.1-rc.2`
+    或用 `dsh plugin allow-version` 显式接受风险后再用
 - **v0.14.0** (2026-10-01) — 适配官方 dsh **0.2.0-rc.2**
   - 官方 `@deepseek-ai/dsh` → **0.2.0-rc.2**；6 个 fork 包升到 `0.2.0-rc.2-harmony.1`
     （`node-addon-system` 上游仍 0.1.2 不变）；`@img/sharp-wasm32` 0.35.4 → **0.35.5**

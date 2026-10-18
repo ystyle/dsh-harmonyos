@@ -4,13 +4,13 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
-最新：**v0.14.0**（2026-10-01）— 适配官方 dsh **0.2.0-rc.2**（koffi 版本收敛）
+最新：**v0.15.0**（2026-10-18）— 适配官方 dsh **0.2.1-rc.2**（客户端鉴权补丁重写、预设同步）
 
 近期版本：
 
+- **v0.14.0** — 适配官方 dsh **0.2.0-rc.2**（koffi 版本收敛）
 - **v0.13.2** — koffi 预编译改用证书签名 + 启动器如实报告签名
 - **v0.13.1** — 修复 koffi 版本漂移导致的源码编译回退（精确钉版 `koffi 3.3.1`）
-- **v0.13.0** — 适配官方 dsh **0.1.7-rc.2**（内置预设机制重写为 bundle 声明）
 
 完整历史（含每个版本的根因与验证方式）见 **[CHANGELOG.md](CHANGELOG.md)** —— 升级前建议读一下当前版本条目。
 
@@ -27,7 +27,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
   # ~/.zshrc
   export NODE_OHOS="$(brew --prefix)/opt/node/bin/node"
   ```
-- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.2.0-rc.2)。
+- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.2.1-rc.2)。
 
 ## 安装与启动
 
