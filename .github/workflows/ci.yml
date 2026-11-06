@@ -41,6 +41,10 @@ jobs:
       # 内置预设校验(issue #5 的教训): 逐行 require.resolve + 与官方 standard 预设比对漂移。
       # 「引用了上游已移除的包」会让新会话挂载失败、前端只 console.warn(按钮点了没反应),
       # 必须在发布前拦住。
+      # 内置预设必须与官方 standard 逐行一致 —— 上游改了 standard 而我们没同步时在这里失败。
+      - name: 内置预设同步校验
+        run: npm run preset-sync -- --check
+
       - name: 内置预设校验
         run: npm run preset-check
 

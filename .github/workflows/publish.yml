@@ -54,6 +54,10 @@ jobs:
       - name: 补丁锚点预检
         run: npm run preflight
 
+      # 内置预设必须与官方 standard 逐行一致 —— 上游改了 standard 而我们没同步时在这里失败。
+      - name: 内置预设同步校验
+        run: npm run preset-sync -- --check
+
       - name: 内置预设校验
         run: npm run preset-check
 

@@ -49,6 +49,7 @@
 | `scripts/forks-list.mjs` | fork 清单唯一事实源（fork 名 / 上游名 / 版本 / 标记） |
 | `scripts/sync-forks.mjs` | 重建 / 校验 / 发布 fork（`sync` / `--check` / `--publish`） |
 | `presets/harmonyos-chat/` | 内置预设 **bundle**（`package.json` + `cordis.patch.yml`），见 §4 |
+| `scripts/preset-sync.mjs` | 从官方 standard 预设重生成本发行版的 bundle(**唯一正确的预设修改方式**) |
 | `scripts/preset-check.mjs` | 预设校验：逐行 `require.resolve` + 与官方 standard 比对漂移 |
 | `scripts/migrate-presets.mjs` | 旧 `.agent-presets/` 目录 → 新声明行迁移（默认预演，`--write` 落盘） |
 | `scripts/smoke.mjs` | 端到端冒烟（起 dsh → token 303 → cookie → `/` 200 → 杀进程） |
@@ -86,6 +87,9 @@
   同时按 id 覆盖 `agent-preset-registry` 的 `config.default`。
 - 启动器 (`ensurePresetBundle`) 把 bundle 包名写进 profile 的 `dsh.profile.bundles`；
   全新 home 会按官方 `initProfile` 模板预建清单（否则默认预设要等第二次启动才生效）。
+- **上游改 standard 后跑 `npm run preset-sync`**：它把官方 `dsh-web-app/presets/standard.patch.yml`
+  文本级改写成我们的 bundle（保缩进/保 `!!js` 标签/保注释，只替换预设标识、persona 与末尾 registry 覆盖）。
+  `--check` 模式已进 ci/publish 门禁 —— 上游改行而我们没同步时 CI 直接失败。**不要手改预设文件。**
 - **发布前必跑 `npm run preset-check`**：它会逐行 `require.resolve` 预设里的每个插件，
   并与官方 `standard` 预设比对行漂移。**引用了上游已移除的包 = 新会话挂载失败，
   前端只 `console.warn`，表现为「新建会话按钮点了没反应」**（issue #5 的血泪）。

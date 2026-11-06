@@ -9,6 +9,30 @@
 
 ## 版本历史
 
+- **v0.16.1** (2026-11-06) — 适配官方 dsh **0.2.2-rc.1**（npm `latest`）
+  - 官方 `@deepseek-ai/dsh` → **0.2.2-rc.1**（发布时 npm `dist-tags.latest`）；6 个 fork 包升到
+    `0.2.2-rc.1-harmony.1`（`node-addon-system` 上游仍是 0.1.2）；`@img/sharp-wasm32` 0.35.5、
+    koffi（上游继续精确钉 3.1.1，本发行版仍钉 3.3.1 由启动器收敛）、node-pty 1.2.0-beta.15、
+    ripgrep 1.18.0 **零变化** → `prebuilt/` 全部复用
+  - 补丁面：**6 个 fork patch 在新基座原样通过**；残余锚点在未打补丁树上 **46/46 命中**，
+    仅 `dsh-fs-local` 一处需适配——0.2.2 把 `createIfAbsent` 改成 `options.createIfAbsent`、
+    `displayPath` 提为局部变量，诊断参数由 `createIfAbsent.displayPath` 变为 `displayPath`；
+    `patchFsLocal` 与对应锚点改为**两种写法都认**（上游再重构不必每次改补丁）
+  - **新增 `npm run preset-sync`（本次关键改进）**：内置预设有一次差点漏同步——上游 standard 预设在
+    0.2.2 又动了行（删 `tool-subagent-list-agents`、`tool-subagent` 的
+    `modelSelectionSettings` → `modelSelection`/`modelDiscovery`、`tool-fs` 新增
+    `applyPatch: false`、`tool-plugin-manager` 改为 `!!js "!ctx.get(profileContext)"`）。
+    现以**官方文件为唯一真值**做文本级改写（保缩进/保 `!!js` 标签/保注释），只替换预设标识、
+    persona 配置与末尾的 registry 覆盖；`--check` 模式可进 CI。**手改预设从此成为历史**
+  - 内置预设：重新同步后 22 行，与官方 standard 逐行一致（`preset-check` 全绿）
+  - **版本策略改为跟随 npm `latest`**（README 新增「版本策略」章节）：适配对象 = 发布时
+    `@deepseek-ai/dsh` 的 `dist-tags.latest`，不按 alpha/rc 名号自选；官方换 `latest` 后跟一版，
+    中间跳过的 prerelease 不单独发版
+  - 验证（全新全局嵌套安装 + 真实 home 副本）：`preflight` 46/46、`patch` 全绿、
+    `preset-sync --check` 一致、`preset-check` 无漂移、`smoke` PASS；
+    **CDP 真实浏览器** → `pending:false`、聊天框就位、预设显示「鸿蒙对话模式（内置提示词）」、
+    客户端 **78 个合并 bundle / 150 entry 全 200**、界面新建会话记录 `"agentPreset":"harmonyos-chat"`、`"version":4`
+
 - **v0.15.0** (2026-10-18) — 适配官方 dsh **0.2.1-rc.2**
   - 官方 `@deepseek-ai/dsh` → **0.2.1-rc.2**；6 个 fork 包升到 `0.2.1-rc.2-harmony.1`
     （`node-addon-system` 上游仍是 0.1.2）；原生依赖 koffi **3.1.1**（上游继续精确钉版，本发行版仍钉 3.3.1 并由启动器收敛）/
@@ -47,8 +71,6 @@
   - **给已安装用户的提示**：profile 里钉着 `@deepseek-ai/dsh-mcp-client@0.2.0-rc.2` 的插件行会被 0.2.1 的
     兼容检查禁用（实测 `mcp-everything` / `mcp-harmonyos` / `mcp-wand` 三行），把它升到 `0.2.1-rc.2`
     或用 `dsh plugin allow-version` 显式接受风险后再用
-  - **后继规划**：从下一版起预计**只同步官方 release 版本**，不再逐个跟进 alpha/rc 预发布
-    （原因与例外见 [README.md](README.md#后继规划)）
 - **v0.14.0** (2026-10-01) — 适配官方 dsh **0.2.0-rc.2**
   - 官方 `@deepseek-ai/dsh` → **0.2.0-rc.2**；6 个 fork 包升到 `0.2.0-rc.2-harmony.1`
     （`node-addon-system` 上游仍 0.1.2 不变）；`@img/sharp-wasm32` 0.35.4 → **0.35.5**

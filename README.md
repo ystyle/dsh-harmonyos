@@ -4,26 +4,26 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
 
 ## 更新日志
 
-最新：**v0.15.0**（2026-10-18）— 适配官方 dsh **0.2.1-rc.2**（客户端鉴权补丁重写、预设同步）
+最新：**v0.16.1**（2026-11-06）— 适配官方 dsh **0.2.2-rc.1**（npm `latest`；新增 `preset-sync` 自动同步官方预设）
 
 近期版本：
 
+- **v0.15.0** — 适配官方 dsh **0.2.1-rc.2**（客户端鉴权补丁重写、预设同步）
 - **v0.14.0** — 适配官方 dsh **0.2.0-rc.2**（koffi 版本收敛）
 - **v0.13.2** — koffi 预编译改用证书签名 + 启动器如实报告签名
-- **v0.13.1** — 修复 koffi 版本漂移导致的源码编译回退（精确钉版 `koffi 3.3.1`）
 
 完整历史（含每个版本的根因与验证方式）见 **[CHANGELOG.md](CHANGELOG.md)** —— 升级前建议读一下当前版本条目。
 
-## 后继规划
+## 版本策略
 
-**从下一版起，本发行版预计只同步官方 dsh 的 release（正式发布）版本，不再逐个跟进 alpha / rc 预发布。**
+**本发行版跟随 npm 上 `@deepseek-ai/dsh` 的 `dist-tags.latest` 版本。**
 
-- 原因：预发布是非正式基座，上游每个 prerelease 都可能改动机制层（预设格式、鉴权、会话日志、
-  profile 装配等），逐个跟进成本高、且对使用者的价值有限——真正的使用者要的是能稳定跑起来的版本。
-- 影响：官方出 prerelease 时本仓库**通常不再发对应版本**；等官方发布正式版后统一跟进一版。
-  期间如遇上游 prerelease 修了影响鸿蒙的关键缺陷，会按需单独处理（会在 CHANGELOG 里注明原因）。
-- 在此之前已经跟过的 prerelease 版本（v0.13.x / v0.14.x / v0.15.x）仍可从 npm 安装。
-- 紧急安全/兼容修复不受此限制，仍会随时发补丁版本。
+- 「适配哪个官方版本」= 发布时 `npm view @deepseek-ai/dsh dist-tags.latest` 的值，不按 alpha/rc/release 的
+  名号自行挑选。官方把某个 prerelease 打成 `latest`（例如 `0.2.2-rc.1`），那我们适配的就是它。
+- 查当前适配的官方版本：`node -e "console.log(require('dsh-harmonyos/package.json').dependencies['@deepseek-ai/dsh'])"`，
+  或直接看本 README 的「更新日志」首行与本仓库 `package.json` 的 `@deepseek-ai/dsh` 字段。
+- 官方换了 `latest` 之后，本仓库发一版新版本跟进（版本号见 CHANGELOG）；**中间跳过的 prerelease 不单独发版**。
+- 紧急安全/兼容修复、以及上游 `latest` 引入的鸿蒙破坏性问题，不受此限制，会随时发补丁版本。
 
 ## 环境要求
 
@@ -38,7 +38,7 @@ DeepSeek Harness (dsh) 的 HarmonyOS 适配发行版 —— 让官方 dsh 在鸿
   # ~/.zshrc
   export NODE_OHOS="$(brew --prefix)/opt/node/bin/node"
   ```
-- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` 0.2.1-rc.2)。
+- 官方 dsh 及其依赖由 npm 拉取(`@deepseek-ai/dsh` **0.2.2-rc.1** = 发布时的 npm `dist-tags.latest`)。
 
 ## 安装与启动
 
